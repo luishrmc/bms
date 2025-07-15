@@ -33,6 +33,7 @@ RUN apt-get update && \
     ccache \
     git \
     pkg-config \
+    libssl-dev \
     curl unzip zip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 

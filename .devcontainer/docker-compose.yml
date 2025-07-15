@@ -1,0 +1,36 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  # Your C++ application service
+  bms:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # Mount your local workspace into the container
+      - ..:/home/lumac/workspace:cached
+      - ./mosquitto/certs/mosquitto.crt:/etc/mosquitto-certs/mosquitto.crt:ro
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    # Keep the container running
+    command: sleep infinity
+    # Ensure the mosquitto broker is started before the app
+    depends_on:
+      - mosquitto
+
+  # The Eclipse Mosquitto MQTT broker service
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+    ports:
+      - "8883:8883" # MQTT over TLS
+    volumes:
+      # Mount local directories for configuration, data, and logs
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+      - ./mosquitto/certs:/mosquitto/config/certs
+    restart: unless-stopped
