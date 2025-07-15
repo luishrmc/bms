@@ -1,0 +1,35 @@
+{
+    "name": "C++ Debian:bookworm-12",
+    // Use Dockerfile instead of prebuilt image
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "workspaceFolder": "/home/lumac/workspace",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/lumac/workspace,type=bind,consistency=cached",
+    "remoteUser": "lumac",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "cheshirekow.cmake-format",
+                "vadimcn.vscode-lldb"
+            ],
+            "settings": {
+                "C_Cpp.default.compilerPath": "/usr/bin/g++",
+                "C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
+                "C_Cpp.default.cppStandard": "c++20",
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "cmake.configureOnOpen": true,
+                "cmake.generator": "Ninja"
+            }
+        }
+    },
+    // Enable debugger (gdb/lldb) inside the container
+    "runArgs": [
+        "--cap-add=SYS_PTRACE",
+        "--security-opt",
+        "seccomp=unconfined"
+    ]
+}

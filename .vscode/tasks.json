@@ -1,0 +1,18 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Configure CMake (Debug)",
+            "type": "shell",
+            "command": "cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug",
+            "group": "build"
+        },
+        {
+            "label": "Build CMake",
+            "type": "shell",
+            "command": "cmake --build build",
+            "dependsOn": "Configure CMake (Debug)",
+            "group": "build"
+        }
+    ]
+}
