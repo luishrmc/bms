@@ -7,30 +7,31 @@ set -e
 
 # 1. Create directory structure
 echo "📁 Creating Mosquitto configuration directories..."
-mkdir -p .devcontainer/mosquitto/{config,data,log,certs}
+mkdir -p config/mosquitto/{config,data,log,certs}
 
 # 2. Generate self-signed TLS certificate
 echo "🔐 Generating TLS certificate and key..."
-openssl req -x509 -newkey rsa:2048 \
-  -keyout .devcontainer/mosquitto/certs/bms_broker.key \
-  -out .devcontainer/mosquitto/certs/bms_broker.crt \
-  -days 365 -nodes \
-  -subj "/CN=localhost"
+openssl req -x509 -nodes -days 365 \
+  -newkey rsa:2048 \
+  -keyout config/mosquitto/certs/bms_broker.key \
+  -out config/mosquitto/certs/bms_broker.crt \
+  -config config/openssl.cnf \
+  -extensions v3_req
 
 # 3. Create Mosquitto password file
 echo "🔒 Creating Mosquitto password file..."
-touch .devcontainer/mosquitto/config/passwordfile
-docker run --rm -v "$(pwd)/.devcontainer/mosquitto/config:/mosquitto" eclipse-mosquitto \
+touch config/mosquitto/config/passwordfile
+docker run --rm -v "$(pwd)/config/mosquitto/config:/mosquitto" eclipse-mosquitto \
   mosquitto_passwd -b /mosquitto/passwordfile $USER $PASSWORD
 
 # Restrict permissions
-chmod 700 .devcontainer/mosquitto/config/passwordfile
-chown root:root .devcontainer/mosquitto/config/passwordfile
+chmod 700 config/mosquitto/config/passwordfile
+chown root:root config/mosquitto/config/passwordfile
 
 
 # 4. Generate mosquitto.conf
 echo "⚙️ Writing mosquitto.conf..."
-cat > .devcontainer/mosquitto/config/mosquitto.conf <<EOF
+cat > config/mosquitto/config/mosquitto.conf <<EOF
 persistence true
 persistence_location /mosquitto/data/
 
@@ -47,12 +48,10 @@ allow_anonymous false
 password_file /mosquitto/config/passwordfile
 EOF
 
-chmod -R a+rw .devcontainer/mosquitto/log
-chmod -R a+rw .devcontainer/mosquitto/data
-chmod -R 755 .devcontainer/mosquitto
-chmod 644 .devcontainer/mosquitto/certs/bms_broker.key
-chmod 644 .devcontainer/mosquitto/certs/bms_broker.crt
-
-cp .devcontainer/mosquitto/certs/bms_broker.crt ./certs/bms_broker.crt
+chmod -R a+rw config/mosquitto/log
+chmod -R a+rw config/mosquitto/data
+chmod -R 755 config/mosquitto
+chmod 644 config/mosquitto/certs/bms_broker.key
+chmod 644 config/mosquitto/certs/bms_broker.crt
 
 echo "✅ Mosquitto secure setup complete!"

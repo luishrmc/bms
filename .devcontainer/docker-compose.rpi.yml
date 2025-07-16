@@ -1,0 +1,21 @@
+services:
+  bms:
+    image: lumac1976/bms:arm64
+    container_name: bms
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    volumes:
+      - ../config/mosquitto/certs/bms_broker.crt:/etc/mosquitto-certs/bms_broker.crt:ro
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "8883:8883"
+    volumes:
+      - ../config/mosquitto/config:/mosquitto/config
+      - ../config/mosquitto/data:/mosquitto/data
+      - ../config/mosquitto/log:/mosquitto/log
+      - ../config/mosquitto/certs:/mosquitto/config/certs

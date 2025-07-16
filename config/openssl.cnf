@@ -1,0 +1,21 @@
+# File: openssl-dns.cnf
+[ req ]
+default_bits       = 2048
+default_keyfile    = bms_broker.key
+distinguished_name = req_distinguished_name
+req_extensions     = v3_req
+prompt             = no
+
+[ req_distinguished_name ]
+C  = BR
+ST = Minas Gerais
+L  = Belo Horizonte
+O  = UFMG
+CN = ipberryrasp.local
+
+[ v3_req ]
+subjectAltName = @alt_names
+
+[ alt_names ]
+DNS.1 = ipberryrasp.local
+DNS.2 = localhost

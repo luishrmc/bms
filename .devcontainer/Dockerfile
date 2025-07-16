@@ -25,7 +25,6 @@ RUN apt-get update && \
     cmake \
     ninja-build \
     gdb \ 
-    # lldb \
     clang \
     clang-format \
     clang-tidy \
