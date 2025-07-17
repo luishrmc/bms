@@ -1,9 +1,8 @@
-# File: openssl-dns.cnf
+# File: config/openssl.cnf
+
 [ req ]
 default_bits       = 2048
-default_keyfile    = bms_broker.key
 distinguished_name = req_distinguished_name
-req_extensions     = v3_req
 prompt             = no
 
 [ req_distinguished_name ]
@@ -11,11 +10,30 @@ C  = BR
 ST = Minas Gerais
 L  = Belo Horizonte
 O  = UFMG
+OU = DELT
 CN = ipberryrasp.local
-
-[ v3_req ]
-subjectAltName = @alt_names
 
 [ alt_names ]
 DNS.1 = ipberryrasp.local
 DNS.2 = localhost
+
+# For CA certificate generation
+[ v3_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:true
+keyUsage = critical, keyCertSign, cRLSign
+
+# For broker/server certificate
+[ server_cert ]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+# For client certificate
+[ client_cert ]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth
+

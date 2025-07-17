@@ -13,6 +13,13 @@
             "command": "cmake --build build",
             "dependsOn": "Configure CMake (Debug)",
             "group": "build"
+        },
+        {
+            "label": "Run Executable",
+            "type": "shell",
+            "command": "./build/project_output/main",
+            "dependsOn": "Build CMake",
+            "group": "test"
         }
     ]
 }
