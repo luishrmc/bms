@@ -2,12 +2,24 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Launch Debug Target",
-      "type": "node",
+      "name": "(gdb) Launch Debug",
+      "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/project_output/main",
       "args": [],
+      "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "Build CMake"
     }
   ]
 }

@@ -52,6 +52,15 @@ add_executable(${EXECUTABLE_NAME}
     main.cpp
 )
 
+target_include_directories(${EXECUTABLE_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/modbuspp
+    ${CMAKE_CURRENT_SOURCE_DIR}/config
+)
+
+target_compile_definitions(${EXECUTABLE_NAME} PUBLIC
+    # ENABLE_MODBUSPP_LOGGING
+)
+
 target_link_libraries(${EXECUTABLE_NAME} PRIVATE
     nlohmann_json::nlohmann_json
     PahoMqttCpp::paho-mqttpp3     # resolves to static or shared as built

@@ -1,120 +1,102 @@
-#include <chrono>
+#include <iostream>
+#include <iomanip>
+#include <vector>
+#include <memory>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
-#include <iostream>
 #include <string>
+#include <chrono>
+#include <thread>
 
-#include "mqtt/async_client.h"
+#include "modbus.hpp" // Adjust include path as needed
 
-const std::string DFLT_SERVER_URI{"mqtts://localhost:8883"};
-const std::string DFLT_CLIENT_ID{"ssl_publish_cpp"};
-
-const std::string KEY_STORE{"node-0/node-0.pem"};
-const std::string TRUST_STORE{"node-0/ca.crt"};
-
-const std::string LWT_TOPIC{"events/disconnect"};
-const std::string LWT_PAYLOAD{"Last will and testament."};
-
-const int QOS = 1;
-const auto TIMEOUT = std::chrono::seconds(10);
-
-/////////////////////////////////////////////////////////////////////////////
-
-/**
- * A callback class for use with the main MQTT client.
+/*
+ * Simple Modbus/TCP regression test for the lightweight modbuspp wrapper (modbus.hpp).
+ *
+ * This program exercises the oitc/modbus-server container example map we built earlier.
+ * It demonstrates:
+ *   1. Connecting to a Modbus/TCP slave.
+ *   2. Reading coils (FC=0x01).
+ *   3. Reading holding registers (FC=0x03).
+ *   4. Reading input registers (FC=0x04).
+ *   5. Writing a single coil (FC=0x05) and verifying.
+ *   6. Writing a single holding register (FC=0x06) and verifying.
+ *   7. Writing multiple coils (FC=0x0F) and verifying.
+ *   8. Basic error reporting using modbus::err / error_msg.
+ *
  */
-class callback : public virtual mqtt::callback
+
+// ---------------------- Address Map (must match server_config.json) ----------------------
+
+// Utility: print error if mb.err set or rc != 0.
+static bool check_rc(const char *op, modbus &mb, int rc)
 {
-public:
-    void connection_lost(const std::string& cause) override
+    if (rc == 0 && !mb.err)
+        return true;
+    std::cerr << "[ERROR] " << op << " rc=" << rc;
+    if (mb.err)
+        std::cerr << " mb.err_no=" << mb.err_no << " msg=" << mb.error_msg;
+    std::cerr << std::endl;
+    return false;
+}
+
+// Helper to dump an array of bools as 0/1
+static void dump_bools(const bool *b, size_t n, uint16_t start_addr)
+{
+    for (size_t i = 0; i < n; ++i)
     {
-        std::cout << "\nConnection lost" << std::endl;
-        if (!cause.empty())
-            std::cout << "\tcause: " << cause << std::endl;
+        std::cout << "  coil[" << std::dec << (start_addr + i) << "]=" << (b[i] ? 1 : 0) << '\n';
     }
+}
 
-    void delivery_complete(mqtt::delivery_token_ptr tok) override
+// Helper to dump an array of uint16_t in dec & hex
+static void dump_regs(const uint16_t *r, size_t n, uint16_t start_addr)
+{
+    for (size_t i = 0; i < n; ++i)
     {
-        std::cout << "\tDelivery complete for token: " << (tok ? tok->get_message_id() : -1)
-                  << std::endl;
+        std::cout << "  reg[" << (start_addr + i) << "] = " << r[i]
+                  << " (0x" << std::hex << std::setw(4) << std::setfill('0') << r[i] << std::dec << ")\n";
     }
-};
-
-/////////////////////////////////////////////////////////////////////////////
-
-using namespace std;
+}
 
 int main(void)
 {
+    std::string host = "192.168.0.15";
+    uint16_t port = 5020; // match docker -p 5020:5020
+    int slave_id = 1;
+
+    std::cout << "[INFO] Connecting to Modbus TCP slave at " << host << ":" << port
+              << " (slave id " << slave_id << ")..." << std::endl;
+
+    modbus mb(host, port);
+    mb.modbus_set_slave_id(slave_id);
+    if (!mb.modbus_connect())
     {
-        ifstream tstore(TRUST_STORE);
-        if (!tstore) {
-            cerr << "The trust store file does not exist: " << TRUST_STORE << endl;
-            return 1;
-        }
-
-        ifstream kstore(KEY_STORE);
-        if (!kstore) {
-            cerr << "The key store file does not exist: " << KEY_STORE << endl;
-            return 1;
-        }
-    }
-
-    cout << "Initializing for server '" << DFLT_SERVER_URI << "'..." << endl;
-    mqtt::async_client client(DFLT_SERVER_URI, DFLT_CLIENT_ID);
-
-    callback cb;
-    client.set_callback(cb);
-
-    // Build the connect options, including SSL and a LWT message.
-
-    auto sslopts = mqtt::ssl_options_builder()
-                       .trust_store(TRUST_STORE)
-                       .key_store(KEY_STORE)
-                       .error_handler([](const std::string& msg) {
-                           std::cerr << "SSL Error: " << msg << std::endl;
-                       })
-                       .finalize();
-
-    auto willmsg = mqtt::message(LWT_TOPIC, LWT_PAYLOAD, QOS, true);
-
-    auto connopts = mqtt::connect_options_builder()
-                        .user_name("lumac")
-                        .password("128Parsecs!")
-                        .will(std::move(willmsg))
-                        .ssl(std::move(sslopts))
-                        .finalize();
-
-    cout << "  ...OK" << endl;
-
-    try {
-        // Connect using SSL/TLS
-
-        cout << "\nConnecting..." << endl;
-        mqtt::token_ptr conntok = client.connect(connopts);
-        cout << "Waiting for the connection..." << endl;
-        conntok->wait();
-        cout << "  ...OK" << endl;
-
-        // Send a message
-
-        cout << "\nSending message..." << endl;
-        auto msg = mqtt::make_message("hello", "Hello secure C++ world!", QOS, false);
-        client.publish(msg)->wait_for(TIMEOUT);
-        cout << "  ...OK" << endl;
-
-        // Disconnect
-
-        cout << "\nDisconnecting..." << endl;
-        client.disconnect()->wait();
-        cout << "  ...OK" << endl;
-    }
-    catch (const mqtt::exception& exc) {
-        cerr << exc.what() << endl;
+        std::cerr << "[FATAL] Connection failed." << std::endl;
         return 1;
     }
 
+    uint16_t coils_addr = 0x0000;
+    uint8_t coils_size = 4;
+    bool coils_buf[coils_size]{};
+    int rc = mb.modbus_read_coils(coils_addr, coils_size, coils_buf);
+    if (check_rc("none", mb, rc))
+    {
+        dump_bools(coils_buf, coils_size, coils_addr);
+    }
+
+    uint16_t holding_reg_addr = 0x0000;
+    uint8_t holding_reg_size = 4;
+    uint16_t regs[holding_reg_size]{};
+    rc = mb.modbus_read_holding_registers(holding_reg_addr, holding_reg_size, regs);
+    if (check_rc("none", mb, rc))
+    {
+        std::cout << "Holding Registers:" << std::endl;
+        dump_regs(regs, holding_reg_size, holding_reg_addr);
+    }
+
+    mb.modbus_close();
+    std::cout << "Done." << std::endl;
     return 0;
 }
-
