@@ -1,22 +1,51 @@
 cmake_minimum_required(VERSION 3.22)
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
+# ------------------------------------ PROJECT DEFINITIONS ------------------------------------ #
 project(
-    BMS
+    bms
     VERSION 0.0.1
     LANGUAGES C CXX
 )
 
-set(CMAKE_CXX_STANDARD 17)
+# ------------------------------------ CPP/C CONFIG ------------------------------------ #
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
+# ------------------------------------ SYSTEM CONFIG ------------------------------------ #
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-set(EXECUTABLE_NAME "main")
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
+# Get the current Git commit hash
+execute_process(
+    COMMAND git rev-parse HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_SHA
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 
+configure_file(
+    "config/config.hpp.in" "${CMAKE_BINARY_DIR}/app_config/config.hpp"
+    ESCAPE_QUOTES)
+
+# ------------------------------------ CCACHE SUPPORT ------------------------------------ #
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+    message(STATUS "Using ccache")
+    set(CMAKE_C_COMPILER_LAUNCHER ccache)
+    set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+endif()
+
+# ------------------------------------ DEPENDENCIES ------------------------------------ #
+# CMake Package Manager
 include(CPM)
 
-# nlohmann/json (re-enable; see note below)
+# nlohmann/json
 CPMAddPackage(
   NAME nlohmann_json
   GITHUB_REPOSITORY nlohmann/json
@@ -32,7 +61,7 @@ CPMAddPackage(
     "JSON_BuildTests OFF"              # skip upstream unit tests
 )
 
-# Build Paho C++ + bundled Paho C
+# Paho C++ + bundled Paho C
 CPMAddPackage(
   NAME paho-mqttpp3
   GITHUB_REPOSITORY eclipse-paho/paho.mqtt.cpp
@@ -48,24 +77,5 @@ CPMAddPackage(
     "PAHO_BUILD_TESTS OFF"
 )
 
-add_executable(${EXECUTABLE_NAME}
-    main.cpp
-)
-
-target_include_directories(${EXECUTABLE_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/lib/modbuspp
-    ${CMAKE_CURRENT_SOURCE_DIR}/config
-)
-
-target_compile_definitions(${EXECUTABLE_NAME} PUBLIC
-    # ENABLE_MODBUSPP_LOGGING
-)
-
-target_link_libraries(${EXECUTABLE_NAME} PRIVATE
-    nlohmann_json::nlohmann_json
-    PahoMqttCpp::paho-mqttpp3     # resolves to static or shared as built
-)
-
-set_target_properties(${EXECUTABLE_NAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/project_output
-)
+# ------------------------------------ SUBDIRECTORIES ------------------------------------ #
+add_subdirectory(app)

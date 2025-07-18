@@ -17,7 +17,7 @@
         {
             "label": "Run Executable",
             "type": "shell",
-            "command": "./build/project_output/main",
+            "command": "./build/project_output/bms",
             "dependsOn": "Build CMake",
             "group": "test"
         }
