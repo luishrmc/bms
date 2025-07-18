@@ -18,6 +18,7 @@
 // ----------------------------- Includes ----------------------------- //
 #include <iostream>
 #include "config.hpp"
+#include "data_logger_service.hpp"
 
 // -------------------------- Private Types --------------------------- //
 
@@ -33,6 +34,12 @@
 int main()
 {
     std::cout << "[Main] Starting application: " << project_name << " v" << project_version << "\n";
+
+    DataLoggerService dl("127.0.0.1", 5020, 1);
+    dl.connect();
+    dl.disconnect();
+    dl.disconnect();
+
     return 0;
 }
 

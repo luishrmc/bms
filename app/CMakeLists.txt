@@ -13,7 +13,8 @@ set(SRVC src/services)
 
 # Create the main application binary from the entry point
 add_executable(${BMS_EXEC_NAME}
-    ${CTRL}/bms_controller.cpp
+    ${CTRL}/main.cpp
+    ${SRVC}/data_logger_service.cpp
 )
 
 # --------------------------- INCLUDE DIRECTORIES --------------------------- #
@@ -23,8 +24,8 @@ target_include_directories(${BMS_EXEC_NAME} PRIVATE
     ${PROJECT_SOURCE_DIR}/config
     ${CMAKE_BINARY_DIR}/app_config
 
-    ${PROJECT_SOURCE_DIR}/inc/controllers
-    ${PROJECT_SOURCE_DIR}/inc/services
+    inc/controllers
+    inc/services
 )
 
 # --------------------------- COMPILE DEFINITIONS --------------------------- #
@@ -40,6 +41,7 @@ target_compile_definitions(${BMS_EXEC_NAME} PUBLIC
 target_link_libraries(${BMS_EXEC_NAME} PRIVATE
     nlohmann_json::nlohmann_json
     PahoMqttCpp::paho-mqttpp3
+    fmt::fmt
 )
 
 # --------------------------- OUTPUT DIRECTORY --------------------------- #

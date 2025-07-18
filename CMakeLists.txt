@@ -77,5 +77,16 @@ CPMAddPackage(
     "PAHO_BUILD_TESTS OFF"
 )
 
+# FMT Library
+CPMAddPackage(
+    NAME fmt
+    GITHUB_REPOSITORY fmtlib/fmt
+    GIT_TAG 11.2.0
+    OPTIONS
+        "FMT_INSTALL OFF"
+        "FMT_TEST OFF"
+        "FMT_DOC OFF"
+        "FMT_OS OFF"
+)
 # ------------------------------------ SUBDIRECTORIES ------------------------------------ #
 add_subdirectory(app)
