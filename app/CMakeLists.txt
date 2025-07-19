@@ -1,54 +1,35 @@
-# --------------------------- APP CONFIGURATION --------------------------- #
+# --------------------------- EXECUTABLE CONFIGURATION --------------------------- #
 
-# Relative path to the local Modbus++ header-only library
-set(LIB_MODBUS lib/modbuspp)
-
-# Define the name of the final executable
+# Set the name of the final executable target
 set(BMS_EXEC_NAME bms)
 
+# Define the path to the controller source files
 set(CTRL src/controllers)
-set(SRVC src/services)
 
-# --------------------------- EXECUTABLE TARGET --------------------------- #
-
-# Create the main application binary from the entry point
+# Define the main executable and specify its source files
 add_executable(${BMS_EXEC_NAME}
     ${CTRL}/main.cpp
-    ${SRVC}/data_logger_service.cpp
 )
 
-# --------------------------- INCLUDE DIRECTORIES --------------------------- #
-
+# Add include directories needed for this target (e.g., generated config headers)
 target_include_directories(${BMS_EXEC_NAME} PRIVATE
-    ${PROJECT_SOURCE_DIR}/${LIB_MODBUS}
-    ${PROJECT_SOURCE_DIR}/config
     ${CMAKE_BINARY_DIR}/app_config
-
-    inc/controllers
-    inc/services
 )
 
-# --------------------------- COMPILE DEFINITIONS --------------------------- #
-
-# Define compile-time macros for the target
-target_compile_definitions(${BMS_EXEC_NAME} PUBLIC
-    pthread
-)
-
-# --------------------------- LINKED LIBRARIES --------------------------- #
-
-# Link against external libraries pulled via CPM
+# Link required internal libraries to the executable
 target_link_libraries(${BMS_EXEC_NAME} PRIVATE
-    nlohmann_json::nlohmann_json
-    PahoMqttCpp::paho-mqttpp3
-    fmt::fmt
+    data_logger_service_lib
+)
+
+# Define any required compile-time macros for the target
+target_compile_definitions(${BMS_EXEC_NAME} PRIVATE
+    pthread
 )
 
 # --------------------------- OUTPUT DIRECTORY --------------------------- #
 
-# Place the built executable in a clean `project_output` directory
-# inside the root build tree (e.g., build/project_output/)
+# Place the built executable in a structured 'project_output' directory
+# within the build tree for easier discovery and organization
 set_target_properties(${BMS_EXEC_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/project_output
 )
-

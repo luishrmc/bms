@@ -88,5 +88,20 @@ CPMAddPackage(
         "FMT_DOC OFF"
         "FMT_OS OFF"
 )
+
+# Catch2
+CPMAddPackage(
+    NAME Catch2
+    GITHUB_REPOSITORY catchorg/Catch2
+    GIT_TAG v3.8.1
+    OPTIONS
+        "CATCH_INSTALL_DOCS OFF"
+)
+list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
+include(CTest)
+enable_testing()
+add_subdirectory(tests)
+
 # ------------------------------------ SUBDIRECTORIES ------------------------------------ #
+add_subdirectory(app/src/services)
 add_subdirectory(app)

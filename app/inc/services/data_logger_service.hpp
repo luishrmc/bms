@@ -5,7 +5,7 @@
  *              A service responsible for getting the voltage measurements
  *              from the L2M Datalogger8 rev. 3 BDJI board via Modbus-TCP.
  *
- * @version     0.0.1
+ * @version     0.0.2
  * @date        2025-07-18
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -47,47 +47,52 @@ public:
 
     explicit DataLoggerService(const std::string &ip, uint16_t port, uint8_t s_id);
 
+    Mode _mode{Mode::IDLE};
+    bool _ntp{false};
+    bool _autocal{false};
+    uint32_t _sampling_period{0};   // [µs]
+    std::string _rtc_epoch{""};     // epoch-since-2000
+    uint16_t _board_temp{0};        // [°C]
+    uint32_t _board_uid{0};         // [UID]
+    uint8_t _fw_major{0};           // firmware major version
+    uint8_t _fw_minor{0};           // firmware minor version
+    uint16_t _fw_build{0};          // firmware build number
+    float _adc_channels[16]{0.0f};  // ADC channels
+    float _adc_scales[8]{0.0f};     // ADC scales
+    float _transd_scales[16]{0.0f}; // Transducer scales
+    float _transd_offsets[8]{0.0f}; // Transducer offsets
+    uint16_t _pga_gains[8]{0};      // PGA gains
+
     bool connect(int max_attempts = 3, int retry_delay_ms = 1000);
     void disconnect();
     bool isConnected() const noexcept { return _connected; }
 
     // ───── section-0 live data (read-only) ─────
-    bool read_status(Mode &mode, bool &ntp, bool &autocal) const;
-    bool read_active_sampling(uint32_t &sampling) const;   // [µs]
-    bool read_active_epoch(uint32_t &epoch) const;         // epoch-since-2000
-    bool read_active_sub_seconds(uint16_t &subsec) const;   // [ms]
-    bool read_channel(uint8_t ch, float &val) const;      // ch 0-15
-    bool read_board_temp(uint16_t &temp) const;            // [0.1 °C]
-    bool read_board_uid(uint32_t &uid) const;
-    void read_firmware(uint8_t &major, uint8_t &minor, uint16_t &build) const;
+    bool read_status();
+    bool read_active_sampling(); // [µs]
+    // bool read_active_epoch(); TODO
+    bool read_channel(uint8_t ch); // ch 0-15
+    bool read_board_temp();        // [0.1 °C]
+    bool read_board_uid();
+    bool read_firmware();
 
     // ───── section-1 actual configuration (read-only) ─────
-    bool read_act_adc_scale(uint8_t ch, float &val) const;     // ch 0-7
-    bool read_act_transd_scale(uint8_t ch, float &val) const;  // ch 0-15
-    bool read_act_transd_offset(uint8_t ch, float &val) const; // ch 0-7
-    bool read_act_pga_gain(uint8_t ch, uint16_t &val) const;   // ch 0-7
+    bool read_act_adc_scale(uint8_t ch);     // ch 0-7
+    bool read_act_transd_scale(uint8_t ch);  // ch 0-15
+    bool read_act_transd_offset(uint8_t ch); // ch 0-7
+    bool read_act_pga_gain(uint8_t ch);      // ch 0-7
 
-    // ───── section-2 set-points (read / write) ─────
+    // ───── section-2 set-points (write) ─────
     bool write_adc_scale(uint8_t ch, float val);
-    bool read_adc_scale(uint8_t ch, float &val) const;
-
     bool write_transd_scale(uint8_t ch, float val);
-    bool read_transd_scale(uint8_t ch, float &val) const;
-
     bool write_transd_offset(uint8_t ch, float val);
-    bool read_transd_offset(uint8_t ch, float &val) const;
-
     bool write_pga_gain(uint8_t ch, uint16_t val);
-    bool read_pga_gain(uint8_t ch, uint16_t &val) const;
-
     bool write_sampling_period(uint32_t us);
-    bool read_sampling_period(uint32_t &us) const;
 
-    bool write_rtc_epoch(uint32_t epoch);
-    bool read_rtc_epoch(uint32_t &epoch) const;
-
-    bool write_rtc_alarm(uint32_t epoch);
-    bool read_rtc_alarm(uint32_t &epoch) const;
+    // bool write_rtc_epoch(uint32_t epoch, uint16_t sub_seconds = 0); // TODO
+    // bool read_rtc_epoch(); // TODO
+    // bool write_rtc_alarm(uint32_t epoch, uint16_t sub_seconds = 0); // TODO
+    // bool read_rtc_alarm(); // TODO
 
     // ───── section-3 commands / system control ─────
     bool write_password(uint32_t pwd);
@@ -105,8 +110,7 @@ public:
         ERASE_CONFIG = 18
     };
     bool send_command(Command cmd);
-
-    bool write_static_ip(uint32_t ip_be); // 0xAABBCCDD → AA.BB.CC.DD
+    bool write_static_ip(uint32_t ip_be);       // 0xAABBCCDD → AA.BB.CC.DD
     bool read_static_ip(uint32_t &ip_be) const; // 0xAABBCCDD → AA.BB.CC.DD
 
 private:
@@ -158,5 +162,3 @@ private:
     bool _connected;
     std::unique_ptr<modbus> _mb;
 };
-
-// *********************** END OF FILE ******************************* //

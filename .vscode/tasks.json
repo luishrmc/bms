@@ -2,23 +2,30 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Configure CMake (Debug)",
+            "label": "Build CMake (Debug)",
             "type": "shell",
             "command": "cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug",
             "group": "build"
         },
         {
-            "label": "Build CMake",
+            "label": "Compile (Debug)",
             "type": "shell",
-            "command": "cmake --build build",
-            "dependsOn": "Configure CMake (Debug)",
+            "command": "cmake --build build -- -j4",
+            "dependsOn": "Build CMake (Debug)",
             "group": "build"
         },
         {
-            "label": "Run Executable",
+            "label": "Run (Debug)",
             "type": "shell",
             "command": "./build/project_output/bms",
             "dependsOn": "Build CMake",
+            "group": "test"
+        },
+        {
+            "label": "Run Unit Tests",
+            "type": "shell",
+            "command": "cd build && ctest",
+            "dependsOn": "Build CMake (Debug)",
             "group": "test"
         }
     ]

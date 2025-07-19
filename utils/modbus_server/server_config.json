@@ -1,45 +1,52 @@
 {
-    "server": {
-        "listenerAddress": "0.0.0.0",
-        "listenerPort": 5020,
-        "protocol": "TCP",
-        "tlsParams": {
-            "description": "path to certificate and private key to enable tls",
-            "privateKey": null,
-            "certificate": null
-        },
-        "logging": {
-            "format": "%(asctime)-15s %(threadName)-15s  %(levelname)-8s %(module)-15s:%(lineno)-8s %(message)s",
-            "logLevel": "INFO"
-        }
+  "server": {
+    "listenerAddress": "0.0.0.0",
+    "listenerPort": 5020,
+    "protocol": "TCP",
+    "tlsParams": {
+      "description": "path to certificate and private key to enable tls",
+      "privateKey": null,
+      "certificate": null
     },
-    "registers": {
-        "description": "initial values for the register types",
-        "zeroMode": false,
-        "initializeUndefinedRegisters": true,
-        "discreteInput": {
-            "1": true,
-            "2": false,
-            "3": true,
-            "4": false
-        },
-        "coils": {
-            "1": false,
-            "2": true,
-            "3": true,
-            "4": false
-        },
-        "holdingRegister": {
-            "1": 52225,
-            "2": "0xCC02",
-            "3": 52227,
-            "4": "0xCC04"
-        },
-        "inputRegister": {
-            "1": "0xDD01",
-            "2": 56578,
-            "3": "0xDD03",
-            "4": 56580
-        }
+    "logging": {
+      "format": "%(asctime)-15s %(threadName)-15s  %(levelname)-8s %(module)-15s:%(lineno)-8s %(message)s",
+      "logLevel": "INFO"
     }
+  },
+  "registers": {
+    "description": "initial values for the register types",
+    "zeroMode": false,
+    "initializeUndefinedRegisters": true,
+    "discreteInput": {},
+    "coils": {},
+    "holdingRegister": {},
+    "inputRegister": {
+      "1": "0xC001",
+      "2": "0x0000", "3": "0x0BB8",
+
+      "4": "0x3035", "5": "0x2980",
+      "6": "0x00FA",
+
+      "7": "0x3fa0", "8": "0x0000",
+      "9": "0x4010", "10": "0x0000",
+      "11": "0x4050", "12": "0x0000",
+      "13": "0x4088", "14": "0x0000",
+      "15": "0x40a8", "16": "0x0000",
+      "17": "0x40c8", "18": "0x0000",
+      "19": "0x40e8", "20": "0x0000",
+      "21": "0x4104", "22": "0x0000",
+      "23": "0x4114", "24": "0x0000",
+      "25": "0x4124", "26": "0x0000",
+      "27": "0x4134", "28": "0x0000",
+      "29": "0x4144", "30": "0x0000",
+      "31": "0x4154", "32": "0x0000",
+      "33": "0x4164", "34": "0x0000",
+      "35": "0x4174", "36": "0x0000",
+      "37": "0x4182", "38": "0x0000",
+
+      "39": "0x012E",
+      "97": "0xA30F", "98": "0xD07C",
+      "99": "0x0820", "100": "0x002A"
+    }
+  }
 }

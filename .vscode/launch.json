@@ -7,7 +7,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/project_output/bms",
       "args": [],
-      "stopAtEntry": false,
+      "stopAtEntry": true,
       "cwd": "${workspaceFolder}",
       "environment": [],
       "externalConsole": false,
