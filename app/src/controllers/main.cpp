@@ -20,6 +20,7 @@
 #include "config.hpp"
 #include "data_logger_service.hpp"
 #include "logging_service.hpp"
+#include "mqtt_service.hpp"
 
 // -------------------------- Private Types --------------------------- //
 
@@ -35,7 +36,6 @@
 int main()
 {
     std::cout << "[Main] Starting application: " << project_name << " v" << project_version << std::endl;
-
     return 0;
 }
 

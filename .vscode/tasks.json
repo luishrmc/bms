@@ -18,15 +18,22 @@
             "label": "Run (Debug)",
             "type": "shell",
             "command": "./build/project_output/bms",
-            "dependsOn": "Build CMake",
+            "dependsOn": "Compile (Debug)",
             "group": "test"
         },
         {
             "label": "Run Unit Tests",
             "type": "shell",
-            "command": "cd build && ctest",
-            "dependsOn": "Build CMake (Debug)",
+            "command": "cd build && ctest --output-on-failure",
+            "dependsOn": "Compile (Debug)",
             "group": "test"
+        },
+        {
+            "label": "Rebuild (Clean & Compile)",
+            "type": "shell",
+            "command": "rm -rf build && cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug && cmake --build build -- -j4",
+            "group": "build",
+            "problemMatcher": []
         }
     ]
 }

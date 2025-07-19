@@ -14,11 +14,13 @@ add_executable(${BMS_EXEC_NAME}
 # Add include directories needed for this target (e.g., generated config headers)
 target_include_directories(${BMS_EXEC_NAME} PRIVATE
     ${CMAKE_BINARY_DIR}/app_config
+    ${PROJECT_SOURCE_DIR}/config                  # Project-wide configuration headers
 )
 
 # Link required internal libraries to the executable
 target_link_libraries(${BMS_EXEC_NAME} PRIVATE
     data_logger_service_lib
+    mqtt_service_lib
 )
 
 # Define any required compile-time macros for the target

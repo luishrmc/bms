@@ -16,6 +16,7 @@ CN = ipberryrasp.local
 [ alt_names ]
 DNS.1 = ipberryrasp.local
 DNS.2 = localhost
+DNS.3 = mosquitto
 
 # For CA certificate generation
 [ v3_ca ]

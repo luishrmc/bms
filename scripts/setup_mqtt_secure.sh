@@ -90,6 +90,5 @@ chmod -R a+rw config/mosquitto/data
 chmod -R 755 config/mosquitto
 chmod 644 config/mosquitto/certs/*.key
 chmod 644 config/mosquitto/certs/*.crt
-chmod 644 config/mosquitto/certs/*.pem
 
 echo "✅ Mosquitto TLS+Auth secure setup complete!"
