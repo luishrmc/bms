@@ -19,7 +19,7 @@ target_include_directories(${BMS_EXEC_NAME} PRIVATE
 
 # Link required internal libraries to the executable
 target_link_libraries(${BMS_EXEC_NAME} PRIVATE
-    data_logger_service_lib
+    modbus_service_lib
     mqtt_service_lib
 )
 

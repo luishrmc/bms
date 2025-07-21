@@ -18,9 +18,9 @@
 // ----------------------------- Includes ----------------------------- //
 #include <iostream>
 #include "config.hpp"
-#include "data_logger_service.hpp"
 #include "logging_service.hpp"
 #include "mqtt_service.hpp"
+#include "modbus_service.hpp"
 
 // -------------------------- Private Types --------------------------- //
 
