@@ -87,8 +87,8 @@ public:
                 std::string user_name,
                 std::string password,
                 TlsConfig tls,
-                int qos = 1,
-                std::chrono::milliseconds timeout = std::chrono::seconds{10});
+                int default_qos = 1,
+                std::chrono::milliseconds timeout = std::chrono::seconds(10));
 
     /** @brief Destructor – disconnects gracefully if still connected. */
     ~MqttService();
@@ -97,13 +97,8 @@ public:
     // Connection management (non‑blocking)
     // ---------------------------------------------------------------------
 
-    /** @brief Initiate an asynchronous TLS connection to the broker. */
-    std::future<void> connect();
-
-    /** @brief Initiate an orderly disconnect. */
-    std::future<void> disconnect();
-
-    /** @return `true` if the underlying client is currently connected. */
+    mqtt::token_ptr connect();
+    mqtt::token_ptr disconnect();
     [[nodiscard]] bool is_connected() const noexcept;
 
     // ---------------------------------------------------------------------
@@ -115,13 +110,11 @@ public:
      *
      * @param topic     Destination topic.
      * @param payload   Arbitrary byte buffer.
-     * @param qos       QoS level (0‑2). Default = constructor‐provided `qos_`.
      * @param retained  Retain flag.
      * @return `std::future<void>` signalling completion or failure.
      */
-    std::future<void> publish(const std::string &topic,
+    mqtt::delivery_token_ptr publish(const std::string &topic,
                               const std::string &payload,
-                              int qos = -1,
                               bool retained = false);
 
     /**
@@ -132,9 +125,7 @@ public:
      * @param qos       QoS level (0‑2). Default = constructor‐provided `qos_`.
      * @return `std::future<void>` signalling subscription completion.
      */
-    std::future<void> subscribe(const std::string &topic,
-                                MessageHandler handler,
-                                int qos = -1);
+    mqtt::token_ptr subscribe(const std::string &topic, MessageHandler handler);
 
     /**
      * @brief Remove an existing subscription.
@@ -142,8 +133,9 @@ public:
      * @param topic Topic filter.
      * @return `std::future<void>` signalling un‑subscribe completion.
      */
-    std::future<void> unsubscribe(const std::string &topic);
+    mqtt::token_ptr unsubscribe(const std::string &topic);
 
+    const std::chrono::milliseconds default_timeout_;
 private:
     // -----------------------------------------------------------------
     // Internal helper types
@@ -178,11 +170,10 @@ private:
     mqtt::async_client client_;
     std::unique_ptr<Callback> cb_;
     std::unordered_map<std::string, MessageHandler> handlers_{};
-    TlsConfig tls_; ///< TLS credentials.
+    TlsConfig tls_;
 
     // Immutable configuration
     const int default_qos_;
-    const std::chrono::milliseconds default_timeout_;
     const std::string user_name_{"lumac"};
     const std::string password_{"128Parsecs!"};
     const std::string lwt_topic_{"events/disconnect"};

@@ -2,7 +2,7 @@
  * @file        mqtt_service.cpp
  * @author      Luis Maciel (luishrm@ufmg.br)
  * @brief
- * @version     0.0.1
+ * @version     0.1.0
  * @date        2025-07-18
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -21,7 +21,6 @@
 #include <mqtt/ssl_options.h>
 
 #include <future>
-#include <thread>
 // -------------------------- Private Types --------------------------- //
 
 // -------------------------- Private Defines -------------------------- //
@@ -39,14 +38,14 @@ MqttService::MqttService(std::string server_uri,
                          std::string user_name,
                          std::string password,
                          TlsConfig tls,
-                         int qos,
+                         int default_qos,
                          std::chrono::milliseconds timeout)
     : client_{std::move(server_uri), std::move(client_id)},
       user_name_{user_name},
       password_{password},
       cb_{std::make_unique<Callback>(this)},
       tls_{std::move(tls)},
-      default_qos_{qos},
+      default_qos_{default_qos},
       default_timeout_{timeout}
 {
     client_.set_callback(*cb_);
@@ -56,10 +55,8 @@ MqttService::~MqttService()
 {
     try
     {
-        if (is_connected())
-        {
-            disconnect().wait();
-        }
+        if (client_.is_connected())
+            disconnect()->wait_for(default_timeout_);
     }
     catch (const std::exception &e)
     {
@@ -80,59 +77,26 @@ static mqtt::ssl_options make_ssl(const TlsConfig &cfg)
     return sslOpts;
 }
 
-std::future<void> MqttService::connect()
+mqtt::token_ptr MqttService::connect()
 {
-    std::promise<void> prom;
-    auto fut = prom.get_future();
     auto willmsg = mqtt::message(lwt_topic_, lwt_payload_, 0, true);
-    mqtt::connect_options connOpts{};
-    connOpts.set_user_name(user_name_);
-    connOpts.set_password(password_);
-    connOpts.set_mqtt_version(MQTTVERSION_5);
-    connOpts.set_clean_start(true);
-    connOpts.set_automatic_reconnect(true);
-    connOpts.set_keep_alive_interval(20);
-    connOpts.set_will(std::move(willmsg));
-    connOpts.set_ssl(make_ssl(tls_));
-
-    // Launch async worker so API returns immediately
-    std::thread{[this, connOpts, p = std::move(prom)]() mutable
-                {
-                    try
-                    {
-                        client_.connect(connOpts)->wait();
-                        p.set_value();
-                    }
-                    catch (...)
-                    {
-                        p.set_exception(std::current_exception());
-                    }
-                }}
-        .detach();
-
-    return fut;
+    mqtt::connect_options opts{};
+    opts.set_user_name(user_name_);
+    opts.set_password(password_);
+    opts.set_mqtt_version(MQTTVERSION_5);
+    opts.set_clean_start(true);
+    opts.set_automatic_reconnect(true);
+    opts.set_keep_alive_interval(20);
+    opts.set_will(std::move(willmsg));
+    opts.set_ssl(make_ssl(tls_));
+    log(LogLevel::Info, fmt::format("MQTT Connecting..."));
+    return client_.connect(opts);
 }
 
-std::future<void> MqttService::disconnect()
+mqtt::token_ptr MqttService::disconnect()
 {
-    std::promise<void> prom;
-    auto fut = prom.get_future();
-
-    std::thread{[this, p = std::move(prom)]() mutable
-                {
-                    try
-                    {
-                        client_.disconnect()->wait();
-                        p.set_value();
-                    }
-                    catch (...)
-                    {
-                        p.set_exception(std::current_exception());
-                    }
-                }}
-        .detach();
-
-    return fut;
+    log(LogLevel::Warn, fmt::format("MQTT Disconnecting..."));
+    return client_.disconnect();
 }
 
 bool MqttService::is_connected() const noexcept
@@ -140,100 +104,46 @@ bool MqttService::is_connected() const noexcept
     return client_.is_connected();
 }
 
-std::future<void> MqttService::publish(const std::string &topic,
-                                       const std::string &payload,
-                                       int qos,
-                                       bool retained)
+mqtt::delivery_token_ptr MqttService::publish(const std::string &topic,
+                              const std::string &payload,
+                              bool retained)
 {
-    std::promise<void> prom;
-    auto fut = prom.get_future();
-
-    int effective_qos = (qos >= 0) ? qos : default_qos_;
-    mqtt::message_ptr msg = mqtt::make_message(topic, payload, effective_qos, retained);
-
-    std::thread{[this, msg = std::move(msg), p = std::move(prom)]() mutable {
-        try {
-            client_.publish(msg)->wait_for(default_timeout_);
-            p.set_value();
-        }
-        catch (...) {
-            p.set_exception(std::current_exception());
-        }
-    }}.detach();
-
-    return fut;
+    mqtt::message_ptr msg = mqtt::make_message(topic, payload, default_qos_, retained);
+    log(LogLevel::Info, fmt::format("MQTT Publishing to topic '{}': {}", topic, payload));
+    return client_.publish(msg);
 }
 
-std::future<void> MqttService::subscribe(const std::string &topic,
-                                         MessageHandler handler,
-                                         int qos)
+mqtt::token_ptr MqttService::subscribe(const std::string &topic, MessageHandler handler)
 {
-    std::promise<void> prom;
-    auto fut = prom.get_future();
-
-    int effective_qos = (qos >= 0) ? qos : default_qos_;
-    {
-        std::scoped_lock lock(mutex_);
-        handlers_[topic] = std::move(handler);
-    }
-
-    std::thread{[this, topic, qos = effective_qos, p = std::move(prom)]() mutable {
-        try {
-            client_.subscribe(topic, qos)->wait_for(default_timeout_);
-            p.set_value();
-        }
-        catch (...) {
-            p.set_exception(std::current_exception());
-        }
-    }}.detach();
-
-    return fut;
+    std::scoped_lock lock(mutex_);
+    handlers_[topic] = std::move(handler);
+    log(LogLevel::Info, fmt::format("MQTT subscribe: {}", topic));
+    return client_.subscribe(topic, default_qos_);
 }
 
-std::future<void> MqttService::unsubscribe(const std::string &topic)
+mqtt::token_ptr MqttService::unsubscribe(const std::string &topic)
 {
-    std::promise<void> prom;
-    auto fut = prom.get_future();
-
-    {
-        std::scoped_lock lock(mutex_);
-        handlers_.erase(topic);
-    }
-
-    std::thread{[this, topic, p = std::move(prom)]() mutable {
-        try {
-            client_.unsubscribe(topic)->wait_for(default_timeout_);
-            p.set_value();
-        }
-        catch (...) {
-            p.set_exception(std::current_exception());
-        }
-    }}.detach();
-
-    return fut;
+    std::scoped_lock lock(mutex_);
+    handlers_.erase(topic);
+    return client_.unsubscribe(topic);
 }
 
-// --------------------- MQTT Callbacks -------------------- //
+// -------------------------------------------------------------------- //
+//  MQTT Callback glue – now free of detached threads
+// -------------------------------------------------------------------- //
 
 void MqttService::Callback::connected(const std::string &cause)
 {
-    log(LogLevel::Info, fmt::format("MQTT connected: {}", cause));
+    log(LogLevel::Info, fmt::format("MQTT Connected Callback: {}", cause));
 }
 
 void MqttService::Callback::connection_lost(const std::string &cause)
 {
-    log(LogLevel::Warn, fmt::format("MQTT connection lost: {}", cause));
+    log(LogLevel::Warn, fmt::format("MQTT Connection Lost Callback: {}", cause));
+
     if (parent_)
     {
-        // Best‑effort automatic reconnect
-        try
-        {
-            std::ignore = parent_->connect();
-        }
-        catch (const std::exception &e)
-        {
-            log(LogLevel::Error, fmt::format("Reconnect attempt failed: {}", e.what()));
-        }
+        parent_->connect()->wait_for(parent_->default_timeout_);
     }
 }
 
@@ -251,12 +161,7 @@ void MqttService::Callback::message_arrived(mqtt::const_message_ptr msg)
     }
 
     if (handler)
-    {
-        // Dispatch on a detached thread to keep callback non‑blocking
-        std::thread{[handler, m = std::move(msg)]
-                    { handler(m); }}
-            .detach();
-    }
+        handler(msg); // for light handlers
 }
 
-// *********************** END OF FILE ******************************* //
+// ************************ END OF FILE ******************************* //

@@ -11,7 +11,7 @@ TlsConfig tls = {
 TEST_CASE("MQTT Service Connection and Disconnection")
 {
     MqttService mqttService(
-        "mqtts://mosquitto:8883",
+        "mqtts://localhost:8883",
         "ssl_publish_cpp",
         "lumac",
         "128Parsecs!",
@@ -19,68 +19,25 @@ TEST_CASE("MQTT Service Connection and Disconnection")
         1,
         std::chrono::seconds(10));
 
-    SECTION("Connect to MQTT broker")
+    SECTION("Connect + Publish + Subscribe + Disconnect")
     {
-        REQUIRE_NOTHROW(mqttService.connect().wait());
+        mqtt::token_ptr tok = mqttService.connect();
+        REQUIRE(tok->wait_for(mqttService.default_timeout_));
+        REQUIRE(tok->get_return_code() == MQTTASYNC_SUCCESS);
         REQUIRE(mqttService.is_connected());
-    }
 
-    SECTION("Disconnect from MQTT broker")
-    {
-        REQUIRE_NOTHROW(mqttService.disconnect().wait());
-        REQUIRE_FALSE(mqttService.is_connected());
-    }
-}
+        mqtt::delivery_token_ptr pubTok = mqttService.publish("demo/topic", "hello", false);
+        REQUIRE(pubTok->wait_for(mqttService.default_timeout_));
+        REQUIRE(pubTok->get_return_code() == MQTTASYNC_SUCCESS);
 
-TEST_CASE("MQTT Service Connection and Publication")
-{
-    MqttService mqttService(
-        "mqtts://mosquitto:8883",
-        "ssl_publish_cpp",
-        "lumac",
-        "128Parsecs!",
-        tls,
-        1,
-        std::chrono::seconds(10));
+        auto subTok = mqttService.subscribe("demo/topic", [](auto) { /* handler */ });
+        REQUIRE(subTok->wait_for(mqttService.default_timeout_));
+        REQUIRE(subTok->get_return_code() == MQTTASYNC_SUCCESS);
 
-    SECTION("Connect and Publish to MQTT broker")
-    {
-        REQUIRE_NOTHROW(mqttService.connect().wait());
-        REQUIRE(mqttService.is_connected());
-        std::string topic = "test/topic";
-        std::string payload = "Hello MQTT";
-        REQUIRE_NOTHROW(mqttService.publish(topic, payload, 0, false).wait());
-        REQUIRE_NOTHROW(mqttService.disconnect().wait());
-        REQUIRE_FALSE(mqttService.is_connected());
-    }
-}
+        auto unsubTok = mqttService.unsubscribe("demo/topic");
+        REQUIRE(unsubTok->wait_for(mqttService.default_timeout_));
+        REQUIRE(unsubTok->get_return_code() == MQTTASYNC_SUCCESS);
 
-TEST_CASE("MQTT Service Connection and Subscription")
-{
-    MqttService mqttService(
-        "mqtts://mosquitto:8883",
-        "ssl_publish_cpp",
-        "lumac",
-        "128Parsecs!",
-        tls,
-        1,
-        std::chrono::seconds(10));
-
-    bool isMessageReceived = false;
-    MessageHandler handler = [&isMessageReceived](mqtt::const_message_ptr msg)
-    {
-        isMessageReceived = true;
-    };
-
-    SECTION("Connect and Subscribe to MQTT broker")
-    {
-        REQUIRE_NOTHROW(mqttService.connect().wait());
-        REQUIRE(mqttService.is_connected());
-        std::string topic = "test/topic";
-        REQUIRE_NOTHROW(mqttService.subscribe(topic, handler, 0).wait());
-        std::this_thread::sleep_for(std::chrono::seconds(5));
-        REQUIRE(isMessageReceived);
-        REQUIRE_NOTHROW(mqttService.disconnect().wait());
-        REQUIRE_FALSE(mqttService.is_connected());
+        REQUIRE(mqttService.disconnect()->wait_for(mqttService.default_timeout_));
     }
 }

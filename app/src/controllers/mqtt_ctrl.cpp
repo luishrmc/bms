@@ -1,24 +1,23 @@
 /**
- * @file        bms_controller.cpp
+ * @file        mqtt_ctrl.cpp
  * @author      Luis Maciel (luishrm@ufmg.br)
  * @brief       [Short description of the file’s purpose]
  * @version     0.0.1
- * @date        YYYY-MM-DD
- *               _   _  _____  __  __   _____
+ * @date        2025-07-21
+ *               _   _  _____  __  __   _____ 
  *              | | | ||  ___||  \/  | / ____|
  *              | | | || |_   | \  / || |  __
  *              | | | ||  _|  | |\/| || | |_ |
  *              | |_| || |    | |  | || |__| |
- *               \___/ |_|    |_|  |_| \_____|
- *
+ *               \___/ |_|    |_|  |_| \_____|      
+ * 
  *            Universidade Federal de Minas Gerais
  *                DELT · BMS Project
  */
 
 // ----------------------------- Includes ----------------------------- //
-#include <iostream>
-#include "config.hpp"
 #include "mqtt_ctrl.hpp"
+#include <thread>
 
 // -------------------------- Private Types --------------------------- //
 
@@ -31,32 +30,35 @@
 // ---------------------- Function Prototypes -------------------------- //
 
 // ------------------------- Main Functions ---------------------------- //
-int main()
+
+namespace {
+    std::jthread mqtt_task;
+}
+
+void start_mqtt_task(MqttService& mqtt)
 {
-    std::cout << "[Main] Starting application: " << project_name << " v" << project_version << std::endl;
-
-    TlsConfig tls = {
-        .ca_cert = "config/mosquitto/certs/clients/node-1/ca.crt",
-        .client_cert = "config/mosquitto/certs/clients/node-1/node-1.crt",
-        .client_key = "config/mosquitto/certs/clients/node-1/node-1.pem",
-        .verify_server = true};
-
-    MqttService mqtt(
-        "mqtts://localhost:8883",
-        "ssl_publish_cpp",
-        "lumac",
-        "128Parsecs!",
-        tls,
-        1,
-        std::chrono::seconds(10));
-
-    start_mqtt_task(mqtt);
-
-    while (true)
-    {
-        std::this_thread::sleep_for(std::chrono::seconds(60));
-    }
-    return 0;
+    mqtt_task = std::jthread([&mqtt](std::stop_token stoken) {
+        using namespace std::chrono_literals;
+        
+        while (!stoken.stop_requested())
+        {
+            try {
+                if (!mqtt.is_connected())
+                {
+                    mqtt.connect()->wait();
+                }
+                else
+                {
+                    mqtt.publish("bms/status", "alive", false);
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "MQTT task error: " << e.what() << std::endl;
+            }
+            std::this_thread::sleep_for(2s); // 2 second loop
+        }
+        std::cout << "MQTT task exiting..." << std::endl;
+    });
 }
 
 // *********************** END OF FILE ******************************* //
+
