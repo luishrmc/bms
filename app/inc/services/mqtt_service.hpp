@@ -176,8 +176,8 @@ private:
     const int default_qos_;
     const std::string user_name_{"lumac"};
     const std::string password_{"128Parsecs!"};
-    const std::string lwt_topic_{"events/disconnect"};
-    const std::string lwt_payload_{"Last will and testament."};
+    const std::string lwt_topic_{"alive"};
+    const std::string lwt_payload_{"{\"status\": \"offline\"}"};
 };
 
 // ************************* END OF FILE ******************************* //

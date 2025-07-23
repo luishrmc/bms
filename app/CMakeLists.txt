@@ -9,20 +9,21 @@ set(CTRL src/controllers)
 # Define the main executable and specify its source files
 add_executable(${BMS_EXEC_NAME}
     ${CTRL}/main.cpp
-    ${CTRL}/mqtt_ctrl.cpp
+    # ${CTRL}/mqtt_ctrl.cpp
+    # ${CTRL}/data_logger_ctrl.cpp
 )
 
 # Add include directories needed for this target (e.g., generated config headers)
 target_include_directories(${BMS_EXEC_NAME} PRIVATE
-    ${CMAKE_BINARY_DIR}/app_config
     ${PROJECT_SOURCE_DIR}/config
+    ${CMAKE_BINARY_DIR}/app_config
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/controllers
 )
 
 # Link required internal libraries to the executable
 target_link_libraries(${BMS_EXEC_NAME} PRIVATE
-    modbus_service_lib
     mqtt_service_lib
+    data_logger_service_lib
 )
 
 # Define any required compile-time macros for the target

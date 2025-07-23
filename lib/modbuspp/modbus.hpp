@@ -104,7 +104,7 @@ public:
     ~modbus();
 
     bool modbus_connect();
-    void modbus_close() const;
+    void modbus_close();
 
     bool is_connected() const { return _connected; }
 
@@ -250,12 +250,13 @@ inline bool modbus::modbus_connect()
 /**
  * Close the Modbus/TCP Connection
  */
-inline void modbus::modbus_close() const
+inline void modbus::modbus_close()
 {
     X_CLOSE_SOCKET(_socket);
 #ifdef _WIN32
     WSACleanup();
 #endif
+    _connected = false;
     LOG("Socket Closed");
 }
 

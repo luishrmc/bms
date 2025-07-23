@@ -5,7 +5,7 @@
  *              A service responsible for getting the voltage measurements
  *              from the L2M Datalogger8 rev. 3 BDJI board via Modbus-TCP.
  *
- * @version     0.1.0
+ * @version     0.2.0
  * @date        2025-07-18
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -24,8 +24,8 @@
 #include <string>
 #include <cstdint>
 #include <optional>
-#include "modbus_service.hpp"
 #include "modbus.hpp"
+#include <future>
 
 // -------------------------- Public Types ---------------------------- //
 
@@ -35,20 +35,28 @@
 
 // ------------------------ Public Functions -------------------------- //
 
-class DataLoggerService : public ModBusService
+class DataLoggerService : public modbus
 {
 public:
-    enum class Mode : uint8_t
+    enum dl_mode_t : uint8_t
     {
         IDLE = 0,
         RUN = 1,
         CAL = 2
     };
 
-    using ModBusService::ModBusService;
+    enum dl_err_t : uint8_t
+    {
+        NO_ERROR = 0,
+        DISCONNECTED = 1,
+        CONNECTING = 2
+    };
+
+
+    using modbus::modbus;
     DataLoggerService(const std::string &ip, uint16_t port, uint8_t s_id);
 
-    Mode _mode{Mode::IDLE};
+    dl_mode_t _mode{dl_mode_t::IDLE};
     bool _ntp{false};
     bool _autocal{false};
     uint32_t _sampling_period{0};   // [µs]
@@ -64,29 +72,29 @@ public:
     float _transd_offsets[8]{0.0f}; // Transducer offsets
     uint16_t _pga_gains[8]{0};      // PGA gains
 
-    std::future<bool> connect(uint8_t max_attempts);
-    std::future<bool> disconnect();
+    std::future<dl_err_t> connect(uint8_t max_attempts);
+    void disconnect();
     /* --------------------------- Section 0 (read-only) --------------------------- */
-    bool read_status();
-    bool read_active_sampling(); // [µs]
+    int read_status();
+    int read_act_sampling(); // [µs]
     // TODO bool read_active_epoch();      // epoch-since-1-1-2000
-    bool read_channel(uint8_t ch); // ch 0-15
-    bool read_board_temp();        // [0.1 °C]
-    bool read_board_uid();
-    bool read_firmware_version();
+    int read_channel(uint8_t ch); // ch 0-15
+    int read_board_temp();        // [0.1 °C]
+    int read_board_uid();
+    int read_firmware_version();
 
     /* ------------------- Section 1 (read active configuration) ------------------- */
-    bool read_act_adc_scale(uint8_t ch);     // ch 0-7
-    bool read_act_transd_scale(uint8_t ch);  // ch 0-15
-    bool read_act_transd_offset(uint8_t ch); // ch 0-7
-    bool read_act_pga_gain(uint8_t ch);      // ch 0-7
+    int read_act_adc_scale(uint8_t ch);     // ch 0-7
+    int read_act_transd_scale(uint8_t ch);  // ch 0-15
+    int read_act_transd_offset(uint8_t ch); // ch 0-7
+    int read_act_pga_gain(uint8_t ch);      // ch 0-7
 
     /* ------------------- Section 2 (set active configuration) ------------------- */
-    bool write_adc_scale(uint8_t ch, float val);
-    bool write_transd_scale(uint8_t ch, float val);
-    bool write_transd_offset(uint8_t ch, float val);
-    bool write_pga_gain(uint8_t ch, uint16_t val);
-    bool write_sampling_period(uint32_t us);
+    int write_adc_scale(uint8_t ch, float val);
+    int write_transd_scale(uint8_t ch, float val);
+    int write_transd_offset(uint8_t ch, float val);
+    int write_pga_gain(uint8_t ch, uint16_t val);
+    int write_sampling_period(uint32_t us);
 
     // bool write_rtc_epoch(uint32_t epoch, uint16_t sub_seconds = 0); // TODO
     // bool read_rtc_epoch(); // TODO
@@ -94,12 +102,12 @@ public:
     // bool read_rtc_alarm(); // TODO
 
     /* --------------------------- Section 3 (system control) --------------------------- */
-    bool write_password(uint32_t pwd);
-    bool read_password(uint32_t &pwd);
+    int write_password(uint32_t pwd);
+    int read_password(uint32_t &pwd);
 
     /* --------------------------- Section 4 (read all) --------------------------- */
-    std::future<bool> read_all_channels();
-    std::future<bool> read_all_config();
+    // int read_all_channels(); // TODO
+    // int read_all_config(); // TODO
 
     enum class Command : uint16_t
     {
@@ -112,11 +120,15 @@ public:
         LOAD_CONFIG = 17,
         ERASE_CONFIG = 18
     };
-    bool send_command(Command cmd);
-    bool write_static_ip(uint32_t ip_be); // 0xAABBCCDD → AA.BB.CC.DD
-    bool read_static_ip(uint32_t &ip_be); // 0xAABBCCDD → AA.BB.CC.DD
+    int send_command(Command cmd);
+    int write_static_ip(uint32_t ip_be); // 0xAABBCCDD → AA.BB.CC.DD
+    int read_static_ip(uint32_t &ip_be); // 0xAABBCCDD → AA.BB.CC.DD
 
 private:
+    std::mutex _mb_mtx;
+    int write_float(uint8_t ch, uint16_t addr, float val);
+    int read_float(uint8_t ch, uint16_t addr, float &dst);
+
     // Section-0
     static constexpr uint16_t REG_STATUS = 0;       // Section 0
     static constexpr uint16_t REG_ACT_SAMPLING = 1; // 1-2

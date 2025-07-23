@@ -4,13 +4,13 @@
  * @brief       [Short description of the file’s purpose]
  * @version     0.0.1
  * @date        2025-07-21
- *               _   _  _____  __  __   _____ 
+ *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
  *              | | | || |_   | \  / || |  __
  *              | | | ||  _|  | |\/| || | |_ |
  *              | |_| || |    | |  | || |__| |
- *               \___/ |_|    |_|  |_| \_____|      
- * 
+ *               \___/ |_|    |_|  |_| \_____|
+ *
  *            Universidade Federal de Minas Gerais
  *                DELT · BMS Project
  */
@@ -31,34 +31,24 @@
 
 // ------------------------- Main Functions ---------------------------- //
 
-namespace {
+namespace
+{
     std::jthread mqtt_task;
 }
 
-void start_mqtt_task(MqttService& mqtt)
+void start_mqtt_task(MqttService &mqtt)
 {
-    mqtt_task = std::jthread([&mqtt](std::stop_token stoken) {
-        using namespace std::chrono_literals;
-        
-        while (!stoken.stop_requested())
+    mqtt_task = std::jthread(
+        [&mqtt](std::stop_token stoken)
         {
-            try {
-                if (!mqtt.is_connected())
-                {
-                    mqtt.connect()->wait();
-                }
-                else
-                {
-                    mqtt.publish("bms/status", "alive", false);
-                }
-            } catch (const std::exception& e) {
-                std::cerr << "MQTT task error: " << e.what() << std::endl;
+            using namespace std::chrono_literals;
+
+            while (!stoken.stop_requested())
+            {
+                std::this_thread::sleep_for(2s); // 2 second loop
             }
-            std::this_thread::sleep_for(2s); // 2 second loop
-        }
-        std::cout << "MQTT task exiting..." << std::endl;
-    });
+            std::cout << "MQTT task exiting..." << std::endl;
+        });
 }
 
 // *********************** END OF FILE ******************************* //
-
