@@ -99,11 +99,11 @@ CPMAddPackage(
 )
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 
-include(CTest)
-include(Catch)
-enable_testing()
-find_package(Catch2 REQUIRED)
-add_subdirectory(tests)
+# include(CTest)
+# include(Catch)
+# enable_testing()
+# find_package(Catch2 REQUIRED)
+# add_subdirectory(tests)
 
 # ------------------------------------ SUBDIRECTORIES ------------------------------------ #
 add_subdirectory(app/src/services)

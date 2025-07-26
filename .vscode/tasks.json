@@ -22,7 +22,7 @@
             "group": "test"
         },
         {
-            "label": "Run Unit Tests",
+            "label": "Unit Tests",
             "type": "shell",
             "command": "cd build && ctest --output-on-failure",
             "dependsOn": "Compile (Debug)",

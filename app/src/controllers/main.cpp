@@ -19,8 +19,7 @@
 #include <iostream>
 #include "config.hpp"
 #include <thread>
-// #include "mqtt_ctrl.hpp"
-// #include "data_logger_ctrl.hpp"
+#include "mqtt_ctrl.hpp"
 
 // -------------------------- Private Types --------------------------- //
 
@@ -37,28 +36,22 @@ int main()
 {
     std::cout << "[Main] Starting application: " << project_name << " v" << project_version << std::endl;
 
-    // TlsConfig tls = {
-    //     .ca_cert = "config/mosquitto/certs/clients/node-1/ca.crt",
-    //     .client_cert = "config/mosquitto/certs/clients/node-1/node-1.crt",
-    //     .client_key = "config/mosquitto/certs/clients/node-1/node-1.pem",
-    //     .verify_server = true};
+    TlsConfig tls = {
+        .ca_cert = "config/mosquitto/certs/clients/node-1/ca.crt",
+        .client_cert = "config/mosquitto/certs/clients/node-1/node-1.crt",
+        .client_key = "config/mosquitto/certs/clients/node-1/node-1.pem",
+        .verify_server = true};
 
-    // MqttService mqtt(
-    //     "mqtts://localhost:8883",
-    //     "ssl_publish_cpp",
-    //     "lumac",
-    //     "128Parsecs!",
-    //     tls,
-    //     1,
-    //     std::chrono::seconds(10));
+    MqttService mqtt(
+        "mqtts://localhost:8883",
+        "ssl_publish_cpp",
+        "lumac",
+        "128Parsecs!",
+        tls,
+        1,
+        std::chrono::seconds(10));
 
-    // DataLoggerService dl(
-    //     "127.0.0.1",
-    //     5020,
-    //     1);
-
-    // start_mqtt_task(mqtt);
-    // start_dl_task(dl);
+    auto mqtt_task = start_mqtt_task(mqtt);
 
     while (true)
     {

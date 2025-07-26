@@ -94,60 +94,27 @@ public:
     ~MqttService();
 
     // ---------------------------------------------------------------------
-    // Connection management (non‑blocking)
+    // Connection management
     // ---------------------------------------------------------------------
 
-    mqtt::token_ptr connect();
+    void connect();
     mqtt::token_ptr disconnect();
     [[nodiscard]] bool is_connected() const noexcept;
+    [[nodiscard]] bool is_connecting() const noexcept;
 
     // ---------------------------------------------------------------------
     // Publish / Subscribe interface
     // ---------------------------------------------------------------------
 
-    /**
-     * @brief Publish a message (non‑blocking).
-     *
-     * @param topic     Destination topic.
-     * @param payload   Arbitrary byte buffer.
-     * @param retained  Retain flag.
-     * @return `std::future<void>` signalling completion or failure.
-     */
     mqtt::delivery_token_ptr publish(const std::string &topic,
-                              const std::string &payload,
-                              bool retained = false);
+                                     const std::string &payload,
+                                     bool retained = false);
 
-    /**
-     * @brief Subscribe to a topic and register a handler (non‑blocking).
-     *
-     * @param topic     Topic filter (may include wildcards).
-     * @param handler   Callback executed on message arrival.
-     * @param qos       QoS level (0‑2). Default = constructor‐provided `qos_`.
-     * @return `std::future<void>` signalling subscription completion.
-     */
     mqtt::token_ptr subscribe(const std::string &topic, MessageHandler handler);
-
-    /**
-     * @brief Remove an existing subscription.
-     *
-     * @param topic Topic filter.
-     * @return `std::future<void>` signalling un‑subscribe completion.
-     */
     mqtt::token_ptr unsubscribe(const std::string &topic);
-
     const std::chrono::milliseconds default_timeout_;
-private:
-    // -----------------------------------------------------------------
-    // Internal helper types
-    // -----------------------------------------------------------------
 
-    /**
-     * @brief Paho callback adapter – forwards events to `MqttService`.
-     *
-     * This nested class is required because Paho expects the callback
-     * object to out‑live the client. It captures a raw pointer to the
-     * parent (non‑owning).
-     */
+private:
     class Callback final : public virtual mqtt::callback
     {
     public:
@@ -162,17 +129,37 @@ private:
         MqttService *parent_;
     };
 
-    // -----------------------------------------------------------------
-    // Data members (mutable state guarded by `mutex_`)
-    // -----------------------------------------------------------------
+    class ConnectListener : public mqtt::iaction_listener
+    {
+    public:
+        explicit ConnectListener(MqttService *parent) : parent_{parent} {}
 
-    mutable std::mutex mutex_{}; ///< Guards below.
+        void on_success(const mqtt::token &) override
+        {
+            parent_->is_connecting_.store(false, std::memory_order_relaxed);
+        }
+        void on_failure(const mqtt::token &tok) override
+        {
+            parent_->is_connecting_.store(false, std::memory_order_relaxed);
+        }
+
+    private:
+        MqttService *parent_;
+    };
+
+    mutable std::mutex mutex_{};
     mqtt::async_client client_;
     std::unique_ptr<Callback> cb_;
-    std::unordered_map<std::string, MessageHandler> handlers_{};
-    TlsConfig tls_;
+    ConnectListener cl_;
+    std::atomic<bool> is_connecting_{false};
 
-    // Immutable configuration
+    TlsConfig tls_;
+    std::unordered_map<std::string, MessageHandler> handlers_{};
+
+    const std::string MQTT_USER_TOPIC{"BMS/UFMG/DELT/TEST/"};
+    const std::string MQTT_CH_TOPIC{"VOLTAGE"};
+    const std::string MQTT_CONFIG_TOPIC{"CONFIG"};
+
     const int default_qos_;
     const std::string user_name_{"lumac"};
     const std::string password_{"128Parsecs!"};

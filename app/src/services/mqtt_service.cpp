@@ -44,6 +44,7 @@ MqttService::MqttService(std::string server_uri,
       user_name_{user_name},
       password_{password},
       cb_{std::make_unique<Callback>(this)},
+      cl_{this},
       tls_{std::move(tls)},
       default_qos_{default_qos},
       default_timeout_{timeout}
@@ -77,7 +78,7 @@ static mqtt::ssl_options make_ssl(const TlsConfig &cfg)
     return sslOpts;
 }
 
-mqtt::token_ptr MqttService::connect()
+void MqttService::connect()
 {
     auto willmsg = mqtt::message(lwt_topic_, lwt_payload_, 0, true);
     mqtt::connect_options opts{};
@@ -85,12 +86,13 @@ mqtt::token_ptr MqttService::connect()
     opts.set_password(password_);
     opts.set_mqtt_version(MQTTVERSION_5);
     opts.set_clean_start(true);
-    opts.set_automatic_reconnect(true);
-    opts.set_keep_alive_interval(20);
+    opts.set_automatic_reconnect(false);
+    opts.set_keep_alive_interval(60);
     opts.set_will(std::move(willmsg));
     opts.set_ssl(make_ssl(tls_));
     log(LogLevel::Info, fmt::format("MQTT Connecting..."));
-    return client_.connect(opts);
+    is_connecting_.store(true, std::memory_order_relaxed);
+    client_.connect(opts)->set_action_callback(cl_);
 }
 
 mqtt::token_ptr MqttService::disconnect()
@@ -99,17 +101,22 @@ mqtt::token_ptr MqttService::disconnect()
     return client_.disconnect();
 }
 
+bool MqttService::is_connecting() const noexcept
+{
+    return is_connecting_.load(std::memory_order_relaxed);
+}
+
 bool MqttService::is_connected() const noexcept
 {
     return client_.is_connected();
 }
 
 mqtt::delivery_token_ptr MqttService::publish(const std::string &topic,
-                              const std::string &payload,
-                              bool retained)
+                                              const std::string &payload,
+                                              bool retained)
 {
-    mqtt::message_ptr msg = mqtt::make_message(topic, payload, default_qos_, retained);
-    log(LogLevel::Info, fmt::format("MQTT Publishing to topic '{}': {}", topic, payload));
+    mqtt::message_ptr msg = mqtt::make_message(MQTT_USER_TOPIC + topic, payload, default_qos_, retained);
+    log(LogLevel::Info, fmt::format("MQTT Publishing to topic '{}'", topic));
     return client_.publish(msg);
 }
 
@@ -128,23 +135,15 @@ mqtt::token_ptr MqttService::unsubscribe(const std::string &topic)
     return client_.unsubscribe(topic);
 }
 
-// -------------------------------------------------------------------- //
-//  MQTT Callback glue – now free of detached threads
-// -------------------------------------------------------------------- //
-
 void MqttService::Callback::connected(const std::string &cause)
 {
-    log(LogLevel::Info, fmt::format("MQTT Connected Callback: {}", cause));
+    log(LogLevel::Info, fmt::format("MQTT Connected Callback"));
+    parent_->publish(parent_->lwt_topic_, "{\"status\": \"online\"}", true);
 }
 
 void MqttService::Callback::connection_lost(const std::string &cause)
 {
-    log(LogLevel::Warn, fmt::format("MQTT Connection Lost Callback: {}", cause));
-
-    if (parent_)
-    {
-        parent_->connect()->wait_for(parent_->default_timeout_);
-    }
+    log(LogLevel::Warn, fmt::format("MQTT Connection Lost Callback"));
 }
 
 void MqttService::Callback::message_arrived(mqtt::const_message_ptr msg)

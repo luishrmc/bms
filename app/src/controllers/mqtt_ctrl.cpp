@@ -17,6 +17,7 @@
 
 // ----------------------------- Includes ----------------------------- //
 #include "mqtt_ctrl.hpp"
+#include "logging_service.hpp"
 #include <thread>
 
 // -------------------------- Private Types --------------------------- //
@@ -31,21 +32,25 @@
 
 // ------------------------- Main Functions ---------------------------- //
 
-namespace
+std::jthread start_mqtt_task(MqttService &mqtt)
 {
-    std::jthread mqtt_task;
-}
-
-void start_mqtt_task(MqttService &mqtt)
-{
-    mqtt_task = std::jthread(
+    return std::jthread(
         [&mqtt](std::stop_token stoken)
         {
-            using namespace std::chrono_literals;
-
             while (!stoken.stop_requested())
             {
-                std::this_thread::sleep_for(2s); // 2 second loop
+                if (mqtt.is_connected())
+                {
+                    static uint32_t counter = 0;
+                    counter++;
+                    if (counter % 5 == 0) 
+                        mqtt.publish("alive", "{\"status\": \"online\"}", false);
+                }
+                else if (!mqtt.is_connecting())
+                {
+                    mqtt.connect();
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
             std::cout << "MQTT task exiting..." << std::endl;
         });

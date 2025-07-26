@@ -29,5 +29,5 @@
 
 // ------------------------ Public Functions -------------------------- //
 
-void start_mqtt_task(MqttService& mqtt);
+std::jthread start_mqtt_task(MqttService& mqtt);
 // *********************** END OF FILE ******************************* //
