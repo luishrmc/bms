@@ -18,16 +18,24 @@ RUN apt-get update && \
     echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME
 
+# Add ARM64 architecture and install ARM64-specific packages
+RUN dpkg --add-architecture arm64 && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libssl-dev:arm64 \
+    libc6:arm64 \
+    libstdc++6:arm64 \
+    libgcc-s1:arm64 \
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu
+
 # Install development tools
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     ninja-build \
-    gdb \ 
-    clang \
-    clang-format \
-    clang-tidy \
+    gdb \
     cppcheck \
     ccache \
     git \
@@ -39,6 +47,3 @@ RUN apt-get update && \
 # Switch to user and working directory
 USER $USERNAME
 WORKDIR /home/$USERNAME/workspace
-
-# Default build command when container starts
-CMD ["/bin/bash", "-c", "cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug && cmake --build build"]

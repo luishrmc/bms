@@ -111,12 +111,16 @@ bool MqttService::is_connected() const noexcept
     return client_.is_connected();
 }
 
+void MqttService::alive()
+{
+    publish(lwt_topic_,  "{\"status\": \"online\"}", false);
+}
+
 mqtt::delivery_token_ptr MqttService::publish(const std::string &topic,
                                               const std::string &payload,
                                               bool retained)
 {
-    mqtt::message_ptr msg = mqtt::make_message(MQTT_USER_TOPIC + topic, payload, default_qos_, retained);
-    log(LogLevel::Info, fmt::format("MQTT Publishing to topic '{}'", topic));
+    mqtt::message_ptr msg = mqtt::make_message(topic, payload, default_qos_, retained);
     return client_.publish(msg);
 }
 

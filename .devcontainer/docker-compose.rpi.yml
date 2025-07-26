@@ -3,6 +3,7 @@ services:
     image: lumac1976/bms:arm64
     container_name: bms
     restart: unless-stopped
+    command: sleep infinity
     depends_on:
       - mosquitto
     volumes:

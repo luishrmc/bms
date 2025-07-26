@@ -43,14 +43,15 @@ std::jthread start_mqtt_task(MqttService &mqtt)
                 {
                     static uint32_t counter = 0;
                     counter++;
-                    if (counter % 5 == 0) 
-                        mqtt.publish("alive", "{\"status\": \"online\"}", false);
+                    if (counter % 10 == 0)
+                        mqtt.alive();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
                 else if (!mqtt.is_connecting())
                 {
                     mqtt.connect();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
             std::cout << "MQTT task exiting..." << std::endl;
         });

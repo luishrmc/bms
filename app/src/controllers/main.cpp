@@ -43,7 +43,7 @@ int main()
         .verify_server = true};
 
     MqttService mqtt(
-        "mqtts://localhost:8883",
+        "mqtts://mosquitto:8883",
         "ssl_publish_cpp",
         "lumac",
         "128Parsecs!",

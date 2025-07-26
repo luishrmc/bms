@@ -3,7 +3,7 @@
 set -e
 
 # === CONFIGURATION ===
-DOCKERFILE_PATH="..devcontainer/Dockerfile"
+DOCKERFILE_PATH="..devcontainer/Dockerfile.arm64"
 BUILD_CONTEXT=".."
 
 # === 1. Setup QEMU for ARM builds ===

@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+
+FROM --platform=linux/arm64 debian:bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+ARG USERNAME=lumac
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    sudo \
+    ca-certificates \
+    tzdata && \
+    groupadd --gid 1000 $USERNAME && \
+    useradd --uid 1000 --gid 1000 -m $USERNAME && \
+    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME && \
+    chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Install only necessary runtime libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 \
+    libstdc++6 \
+    libgcc-s1 \
+    libcurl4 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Switch to user and working directory
+USER $USERNAME
+WORKDIR /home/$USERNAME/app
+
+# Copy the ARM64 cross-compiled binary (from build system)
+COPY build_arm64/project_output/bms .
+
+ENTRYPOINT ["./bms"]

@@ -101,15 +101,9 @@ public:
     mqtt::token_ptr disconnect();
     [[nodiscard]] bool is_connected() const noexcept;
     [[nodiscard]] bool is_connecting() const noexcept;
+    void alive();
 
-    // ---------------------------------------------------------------------
-    // Publish / Subscribe interface
-    // ---------------------------------------------------------------------
-
-    mqtt::delivery_token_ptr publish(const std::string &topic,
-                                     const std::string &payload,
-                                     bool retained = false);
-
+    mqtt::delivery_token_ptr publish(const std::string &topic, const std::string &payload, bool retained = false);
     mqtt::token_ptr subscribe(const std::string &topic, MessageHandler handler);
     mqtt::token_ptr unsubscribe(const std::string &topic);
     const std::chrono::milliseconds default_timeout_;
@@ -156,14 +150,14 @@ private:
     TlsConfig tls_;
     std::unordered_map<std::string, MessageHandler> handlers_{};
 
-    const std::string MQTT_USER_TOPIC{"BMS/UFMG/DELT/TEST/"};
-    const std::string MQTT_CH_TOPIC{"VOLTAGE"};
-    const std::string MQTT_CONFIG_TOPIC{"CONFIG"};
+    const std::string MQTT_USER_TOPIC{"bms/ufmg/delt/test/"};
+    const std::string MQTT_CH_TOPIC{"voltage"};
+    const std::string MQTT_CONFIG_TOPIC{"config"};
 
     const int default_qos_;
     const std::string user_name_{"lumac"};
     const std::string password_{"128Parsecs!"};
-    const std::string lwt_topic_{"alive"};
+    const std::string lwt_topic_{"bms/ufmg/delt/test/alive"};
     const std::string lwt_payload_{"{\"status\": \"offline\"}"};
 };
 
