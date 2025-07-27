@@ -17,7 +17,7 @@
         {
             "label": "Run (Debug)",
             "type": "shell",
-            "command": "./build/project_output/bms",
+            "command": "./build_x86/project_output/bms",
             "dependsOn": "Compile (Debug)",
             "group": "test"
         },

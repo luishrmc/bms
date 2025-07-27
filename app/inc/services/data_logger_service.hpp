@@ -5,7 +5,7 @@
  *              A service responsible for getting the voltage measurements
  *              from the L2M Datalogger8 rev. 3 BDJI board via Modbus-TCP.
  *
- * @version     0.2.0
+ * @version     0.2.1
  * @date        2025-07-18
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -72,7 +72,7 @@ public:
     float _transd_offsets[8]{0.0f}; // Transducer offsets
     uint16_t _pga_gains[8]{0};      // PGA gains
 
-    std::future<dl_err_t> connect(uint8_t max_attempts);
+    bool connect(uint8_t max_attempts);
     void disconnect();
     /* --------------------------- Section 0 (read-only) --------------------------- */
     int read_status();

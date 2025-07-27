@@ -2,7 +2,7 @@
  * @file        data_logger_service.cpp
  * @author      Luis Maciel (luishrm@ufmg.br)
  * @brief       Data Logger Service Implementation.
- * @version     0.2.0
+ * @version     0.2.1
  * @date        2025-07-18
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -18,6 +18,7 @@
 // ----------------------------- Includes ----------------------------- //
 
 #include "data_logger_service.hpp"
+#include "logging_service.hpp"
 
 // -------------------------- Private Types --------------------------- //
 
@@ -38,21 +39,20 @@ DataLoggerService::DataLoggerService(const std::string &ip, uint16_t port, uint8
     modbus_set_slave_id(s_id);
 }
 
-std::future<dl_err_t> DataLoggerService::connect(uint8_t max_attempts)
+bool DataLoggerService::connect(uint8_t max_attempts)
 {
     std::lock_guard<std::mutex> lock(_mb_mtx);
-    return std::async(
-        std::launch::async,
-        [this, max_attempts]() -> dl_err_t
+    for (uint8_t i = 0; i < max_attempts; ++i)
+    {
+        app_log(LogLevel::Info, fmt::format("Connecting to Data Logger {}/{}", i + 1, max_attempts));
+        if (is_connected())
         {
-            for (uint8_t i = 0; i < max_attempts; ++i)
-            {
-                if (is_connected())
-                    return dl_err_t::NO_ERROR;
-                modbus_connect();
-            }
-            return dl_err_t::DISCONNECTED;
-        });
+            app_log(LogLevel::Info, "Connected to Data Logger");
+            return true;
+        }
+        modbus_connect();
+    }
+    return false;
 }
 
 void DataLoggerService::disconnect()

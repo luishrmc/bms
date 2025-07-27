@@ -10,6 +10,7 @@ set(CTRL src/controllers)
 add_executable(${BMS_EXEC_NAME}
     ${CTRL}/main.cpp
     ${CTRL}/mqtt_ctrl.cpp
+    ${CTRL}/data_logger_ctrl.cpp
 )
 
 # Add include directories needed for this target (e.g., generated config headers)

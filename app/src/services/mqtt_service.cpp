@@ -2,7 +2,7 @@
  * @file        mqtt_service.cpp
  * @author      Luis Maciel (luishrm@ufmg.br)
  * @brief
- * @version     0.1.0
+ * @version     0.1.1
  * @date        2025-07-18
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -61,7 +61,7 @@ MqttService::~MqttService()
     }
     catch (const std::exception &e)
     {
-        log(LogLevel::Error, fmt::format("MQTT cleanup failed: {}", e.what()));
+        app_log(LogLevel::Error, fmt::format("MQTT cleanup failed: {}", e.what()));
     }
 }
 
@@ -90,14 +90,14 @@ void MqttService::connect()
     opts.set_keep_alive_interval(60);
     opts.set_will(std::move(willmsg));
     opts.set_ssl(make_ssl(tls_));
-    log(LogLevel::Info, fmt::format("MQTT Connecting..."));
+    app_log(LogLevel::Info, fmt::format("MQTT Connecting..."));
     is_connecting_.store(true, std::memory_order_relaxed);
     client_.connect(opts)->set_action_callback(cl_);
 }
 
 mqtt::token_ptr MqttService::disconnect()
 {
-    log(LogLevel::Warn, fmt::format("MQTT Disconnecting..."));
+    app_log(LogLevel::Warn, fmt::format("MQTT Disconnecting..."));
     return client_.disconnect();
 }
 
@@ -128,7 +128,7 @@ mqtt::token_ptr MqttService::subscribe(const std::string &topic, MessageHandler 
 {
     std::scoped_lock lock(mutex_);
     handlers_[topic] = std::move(handler);
-    log(LogLevel::Info, fmt::format("MQTT subscribe: {}", topic));
+    app_log(LogLevel::Info, fmt::format("MQTT subscribe: {}", topic));
     return client_.subscribe(topic, default_qos_);
 }
 
@@ -141,13 +141,13 @@ mqtt::token_ptr MqttService::unsubscribe(const std::string &topic)
 
 void MqttService::Callback::connected(const std::string &cause)
 {
-    log(LogLevel::Info, fmt::format("MQTT Connected Callback"));
+    app_log(LogLevel::Info, fmt::format("MQTT Connected Callback"));
     parent_->publish(parent_->lwt_topic_, "{\"status\": \"online\"}", true);
 }
 
 void MqttService::Callback::connection_lost(const std::string &cause)
 {
-    log(LogLevel::Warn, fmt::format("MQTT Connection Lost Callback"));
+    app_log(LogLevel::Warn, fmt::format("MQTT Connection Lost Callback"));
 }
 
 void MqttService::Callback::message_arrived(mqtt::const_message_ptr msg)

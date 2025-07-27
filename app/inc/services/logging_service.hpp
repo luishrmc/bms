@@ -2,7 +2,7 @@
  * @file        logging_service.hpp
  * @author      Luis Maciel (luishrm@ufmg.br)
  * @brief       Just a small logging wrapper for fmt library.
- * @version     0.0.2
+ * @version     0.0.3
  * @date        2025-07-18
  *               _   _  _____  __  __   _____ 
  *              | | | ||  ___||  \/  | / ____|
@@ -34,7 +34,7 @@
 
 enum class LogLevel { Info, Warn, Error };
 
-inline void log(LogLevel level, std::string_view msg) {
+inline void app_log(LogLevel level, std::string_view msg) {
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::floor<std::chrono::seconds>(now);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - time).count();

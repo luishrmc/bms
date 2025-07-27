@@ -2,7 +2,7 @@
  * @file        mqtt_ctrl.cpp
  * @author      Luis Maciel (luishrm@ufmg.br)
  * @brief       [Short description of the file’s purpose]
- * @version     0.0.1
+ * @version     0.1.0
  * @date        2025-07-21
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -19,6 +19,7 @@
 #include "mqtt_ctrl.hpp"
 #include "logging_service.hpp"
 #include <thread>
+#include "nlohmann/json.hpp"
 
 // -------------------------- Private Types --------------------------- //
 
@@ -32,19 +33,20 @@
 
 // ------------------------- Main Functions ---------------------------- //
 
-std::jthread start_mqtt_task(MqttService &mqtt)
+using json = nlohmann::json;
+
+std::jthread start_mqtt_task(MqttService &mqtt, queue_service::JsonQueue &q)
 {
     return std::jthread(
-        [&mqtt](std::stop_token stoken)
+        [&mqtt, &q](std::stop_token stoken)
         {
             while (!stoken.stop_requested())
             {
                 if (mqtt.is_connected())
                 {
-                    static uint32_t counter = 0;
-                    counter++;
-                    if (counter % 10 == 0)
-                        mqtt.alive();
+                    auto msg = q.try_pop();
+                    if (msg != std::nullopt)
+                        mqtt.publish("bms/ufmg/delt/test/voltage", msg->dump(), false);
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
                 else if (!mqtt.is_connecting())

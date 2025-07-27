@@ -5,7 +5,7 @@
       "name": "(gdb) Launch Debug",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/project_output/bms",
+      "program": "${workspaceFolder}/build_x86/project_output/bms",
       "args": [],
       "stopAtEntry": true,
       "cwd": "${workspaceFolder}",
@@ -19,7 +19,7 @@
           "ignoreFailures": true
         }
       ],
-      "preLaunchTask": "Compile (Debug)"
+      "preLaunchTask": "x86 Compile (Debug)"
     }
   ]
 }

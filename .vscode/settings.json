@@ -1,5 +1,6 @@
 {
     "cmake.configureOnEdit": false,
+    "cmake.configureOnOpen": false,
     "files.associations": {
         "iostream": "cpp",
         "ostream": "cpp",
@@ -79,6 +80,7 @@
         "valarray": "cpp",
         "variant": "cpp",
         "expected": "cpp",
-        "source_location": "cpp"
+        "source_location": "cpp",
+        "queue": "cpp"
     }
 }

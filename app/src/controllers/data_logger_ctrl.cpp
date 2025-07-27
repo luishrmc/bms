@@ -1,9 +1,9 @@
 /**
- * @file        bms_controller.cpp
+ * @file        data_logger_ctrl.cpp
  * @author      Luis Maciel (luishrm@ufmg.br)
  * @brief       [Short description of the file’s purpose]
  * @version     0.0.1
- * @date        YYYY-MM-DD
+ * @date        2025-07-26
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
  *              | | | || |_   | \  / || |  __
@@ -16,11 +16,6 @@
  */
 
 // ----------------------------- Includes ----------------------------- //
-#include <iostream>
-#include "config.hpp"
-#include <thread>
-#include <queue>
-#include "mqtt_ctrl.hpp"
 #include "data_logger_ctrl.hpp"
 
 // -------------------------- Private Types --------------------------- //
@@ -34,37 +29,25 @@
 // ---------------------- Function Prototypes -------------------------- //
 
 // ------------------------- Main Functions ---------------------------- //
-int main()
+
+using json = nlohmann::json;
+
+std::jthread start_data_logger_task(DataLoggerService &dl, queue_service::JsonQueue &q)
 {
-    std::cout << "[Main] Starting application: " << project_name << " v" << project_version << std::endl;
+    return std::jthread(
+        [&dl, &q](std::stop_token stoken)
+        {
+            json msg = {
+                {"type", "data_logger"},
+                {"status", "disconnected"},
+            };
 
-    TlsConfig tls = {
-        .ca_cert = "config/mosquitto/certs/clients/node-1/ca.crt",
-        .client_cert = "config/mosquitto/certs/clients/node-1/node-1.crt",
-        .client_key = "config/mosquitto/certs/clients/node-1/node-1.pem",
-        .verify_server = true};
-
-    MqttService mqtt(
-        "mqtts://localhost:8883",
-        "ssl_publish_cpp",
-        "lumac",
-        "128Parsecs!",
-        tls,
-        1,
-        std::chrono::seconds(10));
-
-    DataLoggerService dl("127.0.0.1", 5020, 1);
-
-    queue_service::JsonQueue json_queue;
-
-    auto mqtt_task = start_mqtt_task(mqtt, json_queue);
-    auto data_logger_task = start_data_logger_task(dl, json_queue);
-
-    while (true)
-    {
-        std::this_thread::sleep_for(std::chrono::seconds(60));
-    }
-    return 0;
+            while (!stoken.stop_requested())
+            {
+                q.push(msg);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            }
+        });
 }
 
 // *********************** END OF FILE ******************************* //
