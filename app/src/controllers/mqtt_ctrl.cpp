@@ -18,8 +18,8 @@
 // ----------------------------- Includes ----------------------------- //
 #include "mqtt_ctrl.hpp"
 #include "logging_service.hpp"
-#include <thread>
 #include "nlohmann/json.hpp"
+#include "config.hpp"
 
 // -------------------------- Private Types --------------------------- //
 
@@ -46,7 +46,11 @@ std::jthread start_mqtt_task(MqttService &mqtt, queue_service::JsonQueue &q)
                 {
                     auto msg = q.try_pop();
                     if (msg != std::nullopt)
-                        mqtt.publish("bms/ufmg/delt/test/voltage", msg->dump(), false);
+                    {
+                        std::string topic_msg = (*msg)["topic"].get<std::string>();
+                        msg->erase("topic");
+                        mqtt.publish(topic_msg, msg->dump(), false);
+                    }
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
                 else if (!mqtt.is_connecting())

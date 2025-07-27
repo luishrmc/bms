@@ -18,7 +18,7 @@
  *              • Keep blocking to a minimum; long operations (connect, publish)
  *                return immediately – status can be checked through futures.
  *
- * @version     0.0.1
+ * @version     0.1.2
  * @date        2025‑07‑19
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -81,11 +81,13 @@ public:
      * @param tls         TLS credential bundle.
      * @param qos         Default QoS used when none is specified (0‑2).
      * @param timeout     Default timeout for async operations.
+     * @param source_topic Base topic for all messages published by this client.
      */
     MqttService(std::string server_uri,
                 std::string client_id,
                 std::string user_name,
                 std::string password,
+                std::string source_topic,
                 TlsConfig tls,
                 int default_qos = 1,
                 std::chrono::milliseconds timeout = std::chrono::seconds(10));
@@ -101,7 +103,6 @@ public:
     mqtt::token_ptr disconnect();
     [[nodiscard]] bool is_connected() const noexcept;
     [[nodiscard]] bool is_connecting() const noexcept;
-    void alive();
 
     mqtt::delivery_token_ptr publish(const std::string &topic, const std::string &payload, bool retained = false);
     mqtt::token_ptr subscribe(const std::string &topic, MessageHandler handler);
@@ -150,15 +151,12 @@ private:
     TlsConfig tls_;
     std::unordered_map<std::string, MessageHandler> handlers_{};
 
-    const std::string MQTT_USER_TOPIC{"bms/ufmg/delt/test/"};
-    const std::string MQTT_CH_TOPIC{"voltage"};
-    const std::string MQTT_CONFIG_TOPIC{"config"};
-
-    const int default_qos_;
-    const std::string user_name_{"lumac"};
-    const std::string password_{"128Parsecs!"};
-    const std::string lwt_topic_{"bms/ufmg/delt/test/alive"};
-    const std::string lwt_payload_{"{\"status\": \"offline\"}"};
+    std::string source_topic_{"bms/ufmg/delt/test/"};
+    int default_qos_{1};
+    std::string user_name_{"lumac"};
+    std::string password_{"128Parsecs!"};
+    std::string lwt_topic_{"alive"};
+    std::string lwt_payload_{"{\"status\": \"offline\"}"};
 };
 
 // ************************* END OF FILE ******************************* //

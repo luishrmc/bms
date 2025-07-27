@@ -2,7 +2,7 @@
  * @file        mqtt_service.cpp
  * @author      Luis Maciel (luishrm@ufmg.br)
  * @brief
- * @version     0.1.1
+ * @version     0.1.2
  * @date        2025-07-18
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -37,6 +37,7 @@ MqttService::MqttService(std::string server_uri,
                          std::string client_id,
                          std::string user_name,
                          std::string password,
+                         std::string source_topic,
                          TlsConfig tls,
                          int default_qos,
                          std::chrono::milliseconds timeout)
@@ -50,6 +51,7 @@ MqttService::MqttService(std::string server_uri,
       default_timeout_{timeout}
 {
     client_.set_callback(*cb_);
+    lwt_topic_ = source_topic + "alive";
 }
 
 MqttService::~MqttService()
@@ -111,16 +113,11 @@ bool MqttService::is_connected() const noexcept
     return client_.is_connected();
 }
 
-void MqttService::alive()
-{
-    publish(lwt_topic_,  "{\"status\": \"online\"}", false);
-}
-
 mqtt::delivery_token_ptr MqttService::publish(const std::string &topic,
                                               const std::string &payload,
                                               bool retained)
 {
-    mqtt::message_ptr msg = mqtt::make_message(topic, payload, default_qos_, retained);
+    mqtt::message_ptr msg = mqtt::make_message(source_topic_ + topic, payload, default_qos_, retained);
     return client_.publish(msg);
 }
 
@@ -142,7 +139,7 @@ mqtt::token_ptr MqttService::unsubscribe(const std::string &topic)
 void MqttService::Callback::connected(const std::string &cause)
 {
     app_log(LogLevel::Info, fmt::format("MQTT Connected Callback"));
-    parent_->publish(parent_->lwt_topic_, "{\"status\": \"online\"}", true);
+    parent_->publish("alive", "{\"status\": \"online\"}", true);
 }
 
 void MqttService::Callback::connection_lost(const std::string &cause)

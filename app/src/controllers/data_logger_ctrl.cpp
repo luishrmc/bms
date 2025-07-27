@@ -17,6 +17,7 @@
 
 // ----------------------------- Includes ----------------------------- //
 #include "data_logger_ctrl.hpp"
+#include "config.hpp"
 
 // -------------------------- Private Types --------------------------- //
 
@@ -38,8 +39,14 @@ std::jthread start_data_logger_task(DataLoggerService &dl, queue_service::JsonQu
         [&dl, &q](std::stop_token stoken)
         {
             json msg = {
-                {"type", "data_logger"},
-                {"status", "disconnected"},
+                {"topic", MQTT_TOPIC_VOLTAGE},
+                {"ch0", 1.15},
+                {"ch1", 2.30},
+                {"ch2", 3.45},
+                {"ch3", 4.60},
+                {"ch4", 5.14},
+                {"ch5", 6.08},
+                {"ch6", 7.42},
             };
 
             while (!stoken.stop_requested())
