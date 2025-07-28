@@ -13,6 +13,7 @@ target_link_libraries(data_logger_service_lib PUBLIC
 target_include_directories(data_logger_service_lib PUBLIC
     ${PROJECT_SOURCE_DIR}/app/inc/services          
     ${PROJECT_SOURCE_DIR}/lib/modbuspp          
+    ${CMAKE_BINARY_DIR}/app_config
 )
 
 # --------------------------- MQTT LIBRARY --------------------------- #
@@ -32,4 +33,5 @@ target_link_libraries(mqtt_service_lib PUBLIC
 # Specify public include directories to expose to any target linking this library
 target_include_directories(mqtt_service_lib PUBLIC
     ${PROJECT_SOURCE_DIR}/app/inc/services          
+    ${CMAKE_BINARY_DIR}/app_config
 )

@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <optional>
 #include "modbus.hpp"
+#include "queue_service.hpp"
 #include <future>
 
 // -------------------------- Public Types ---------------------------- //
@@ -38,13 +39,6 @@
 class DataLoggerService : public modbus
 {
 public:
-    enum dl_mode_t : uint8_t
-    {
-        IDLE = 0,
-        RUN = 1,
-        CAL = 2
-    };
-
     enum dl_err_t : uint8_t
     {
         NO_ERROR = 0,
@@ -52,19 +46,17 @@ public:
         CONNECTING = 2
     };
 
-
     using modbus::modbus;
     DataLoggerService(const std::string &ip, uint16_t port, uint8_t s_id);
 
-    dl_mode_t _mode{dl_mode_t::IDLE};
+    uint8_t _mode{0};
     bool _ntp{false};
     bool _autocal{false};
     uint32_t _sampling_period{0};   // [µs]
     std::string _rtc_epoch{""};     // epoch-since-2000
     uint16_t _board_temp{0};        // [°C]
-    uint32_t _board_uid{0};         // [UID]
-    uint8_t _fw_major{0};           // firmware major version
-    uint8_t _fw_minor{0};           // firmware minor version
+    std::string _board_uid{""};     // [UID]
+    std::string _fw_version{""};    // firmware version
     uint16_t _fw_build{0};          // firmware build number
     float _adc_channels[16]{0.0f};  // ADC channels
     float _adc_scales[8]{0.0f};     // ADC scales
@@ -74,6 +66,10 @@ public:
 
     bool connect(uint8_t max_attempts);
     void disconnect();
+    bool is_linked() const { return _is_linked; }
+    bool link(queue_service::JsonQueue &out_queue);
+    bool measurement(queue_service::JsonQueue &out_queue);
+
     /* --------------------------- Section 0 (read-only) --------------------------- */
     int read_status();
     int read_act_sampling(); // [µs]
@@ -106,8 +102,8 @@ public:
     int read_password(uint32_t &pwd);
 
     /* --------------------------- Section 4 (read all) --------------------------- */
-    // int read_all_channels(); // TODO
-    // int read_all_config(); // TODO
+    int read_all_channels();
+    int read_all_config();
 
     enum class Command : uint16_t
     {
@@ -126,6 +122,7 @@ public:
 
 private:
     std::mutex _mb_mtx;
+    bool _is_linked{false};
     int write_float(uint8_t ch, uint16_t addr, float val);
     int read_float(uint8_t ch, uint16_t addr, float &dst);
 

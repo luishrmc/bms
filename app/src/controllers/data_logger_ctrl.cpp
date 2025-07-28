@@ -18,7 +18,6 @@
 // ----------------------------- Includes ----------------------------- //
 #include "data_logger_ctrl.hpp"
 #include "config.hpp"
-
 // -------------------------- Private Types --------------------------- //
 
 // -------------------------- Private Defines -------------------------- //
@@ -33,26 +32,24 @@
 
 using json = nlohmann::json;
 
-std::jthread start_data_logger_task(DataLoggerService &dl, queue_service::JsonQueue &q)
+std::jthread start_data_logger_task(DataLoggerService &dl, queue_service::JsonQueue &in_queue, queue_service::JsonQueue &out_queue)
 {
     return std::jthread(
-        [&dl, &q](std::stop_token stoken)
+        [&dl, &in_queue, &out_queue](std::stop_token stoken)
         {
-            json msg = {
-                {"topic", MQTT_TOPIC_VOLTAGE},
-                {"ch0", 1.15},
-                {"ch1", 2.30},
-                {"ch2", 3.45},
-                {"ch3", 4.60},
-                {"ch4", 5.14},
-                {"ch5", 6.08},
-                {"ch6", 7.42},
-            };
-
             while (!stoken.stop_requested())
             {
-                q.push(msg);
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                while (dl.connect(3))
+                {
+                    if (!dl.is_linked())
+                    {
+                        dl.link(out_queue);
+                        continue;
+                    }
+                    dl.measurement(out_queue);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
             }
         });
 }

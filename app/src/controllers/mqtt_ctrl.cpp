@@ -34,23 +34,18 @@
 // ------------------------- Main Functions ---------------------------- //
 
 using json = nlohmann::json;
+void check_input_queue(MqttService &mqtt, queue_service::JsonQueue &in_queue);
 
-std::jthread start_mqtt_task(MqttService &mqtt, queue_service::JsonQueue &q)
+std::jthread start_mqtt_task(MqttService& mqtt, queue_service::JsonQueue& in_queue, queue_service::JsonQueue& out_queue)
 {
     return std::jthread(
-        [&mqtt, &q](std::stop_token stoken)
+        [&mqtt, &in_queue, &out_queue](std::stop_token stoken)
         {
             while (!stoken.stop_requested())
             {
                 if (mqtt.is_connected())
                 {
-                    auto msg = q.try_pop();
-                    if (msg != std::nullopt)
-                    {
-                        std::string topic_msg = (*msg)["topic"].get<std::string>();
-                        msg->erase("topic");
-                        mqtt.publish(topic_msg, msg->dump(), false);
-                    }
+                    check_input_queue(mqtt, in_queue);
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
                 else if (!mqtt.is_connecting())
@@ -61,6 +56,17 @@ std::jthread start_mqtt_task(MqttService &mqtt, queue_service::JsonQueue &q)
             }
             std::cout << "MQTT task exiting..." << std::endl;
         });
+}
+
+void check_input_queue(MqttService &mqtt, queue_service::JsonQueue &in_queue)
+{
+    auto msg = in_queue.try_pop();
+    if (msg != std::nullopt)
+    {
+        std::string topic_msg = (*msg)["topic"].get<std::string>();
+        msg->erase("topic");
+        mqtt.publish(topic_msg, msg->dump(), false);
+    }
 }
 
 // *********************** END OF FILE ******************************* //

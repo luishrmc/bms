@@ -30,5 +30,5 @@
 
 // ------------------------ Public Functions -------------------------- //
 
-std::jthread start_mqtt_task(MqttService& mqtt, queue_service::JsonQueue& q);
+std::jthread start_mqtt_task(MqttService& mqtt, queue_service::JsonQueue& in_queue, queue_service::JsonQueue& out_queue);
 // *********************** END OF FILE ******************************* //

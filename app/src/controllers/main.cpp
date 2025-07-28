@@ -56,10 +56,11 @@ int main()
 
     DataLoggerService dl("127.0.0.1", 5020, 1);
 
-    queue_service::JsonQueue json_queue;
+    queue_service::JsonQueue dl_2_mqtt;
+    queue_service::JsonQueue mqtt_2_dl;
 
-    auto mqtt_task = start_mqtt_task(mqtt, json_queue);
-    auto data_logger_task = start_data_logger_task(dl, json_queue);
+    auto mqtt_task = start_mqtt_task(mqtt, mqtt_2_dl, dl_2_mqtt);
+    auto data_logger_task = start_data_logger_task(dl, dl_2_mqtt, mqtt_2_dl);
 
     while (true)
     {

@@ -20,7 +20,6 @@
 // ----------------------------- Includes ----------------------------- //
 #include "data_logger_service.hpp"
 #include <thread>
-#include "queue_service.hpp"
 
 // -------------------------- Public Types ---------------------------- //
 
@@ -30,5 +29,5 @@
 
 // ------------------------ Public Functions -------------------------- //
 
-std::jthread start_data_logger_task(DataLoggerService &dl, queue_service::JsonQueue &q);
+std::jthread start_data_logger_task(DataLoggerService &dl, queue_service::JsonQueue &in_queue, queue_service::JsonQueue &out_queue);
 // *********************** END OF FILE ******************************* //
