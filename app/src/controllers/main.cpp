@@ -39,9 +39,9 @@ int main()
     std::cout << "[Main] Starting application: " << project_name << " v" << project_version << std::endl;
 
     TlsConfig TLS = {
-        .ca_cert = "config/mosquitto/certs/clients/node-1/ca.crt",
-        .client_cert = "config/mosquitto/certs/clients/node-1/node-1.crt",
-        .client_key = "config/mosquitto/certs/clients/node-1/node-1.pem",
+        .ca_cert = "config/certs/mqtt/ca.crt",
+        .client_cert = "config/certs/mqtt/pi.crt",
+        .client_key = "config/certs/mqtt/pi.pem",
         .verify_server = true};
 
     MqttService mqtt(
@@ -54,7 +54,7 @@ int main()
         MQTT_DEFAULT_QOS,
         std::chrono::milliseconds(MQTT_DEFAULT_TIME_OUT_MS));
 
-    DataLoggerService dl("127.0.0.1", 5020, 1);
+    DataLoggerService dl("192.168.0.200", 502, 1);
 
     queue_service::JsonQueue dl_2_mqtt;
     queue_service::JsonQueue mqtt_2_dl;

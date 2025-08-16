@@ -8,6 +8,7 @@ services:
       - mosquitto
     volumes:
       - ../config/mosquitto/certs/bms_broker.crt:/etc/mosquitto-certs/bms_broker.crt:ro
+      - ../config/certs/mqtt:/config/certs/mqtt:ro
 
   mosquitto:
     image: eclipse-mosquitto:2.0

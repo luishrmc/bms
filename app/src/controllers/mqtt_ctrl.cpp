@@ -36,7 +36,21 @@
 using json = nlohmann::json;
 void check_input_queue(MqttService &mqtt, queue_service::JsonQueue &in_queue);
 
-std::jthread start_mqtt_task(MqttService& mqtt, queue_service::JsonQueue& in_queue, queue_service::JsonQueue& out_queue)
+void test_handler(const mqtt::const_message_ptr &msg)
+{
+    try
+    {
+        json jmsg = json::parse(msg->get_payload_str());
+        app_log(LogLevel::Info, fmt::format("Received config message: {}", jmsg.dump(4)));
+    }
+    catch (const json::parse_error &e)
+    {
+        app_log(LogLevel::Error, fmt::format("JSON parse error: {}", e.what()));
+    }
+}
+
+std::jthread start_mqtt_task(MqttService &mqtt, queue_service::JsonQueue &in_queue,
+                             queue_service::JsonQueue &out_queue)
 {
     return std::jthread(
         [&mqtt, &in_queue, &out_queue](std::stop_token stoken)
@@ -52,6 +66,7 @@ std::jthread start_mqtt_task(MqttService& mqtt, queue_service::JsonQueue& in_que
                 {
                     mqtt.connect();
                     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                    mqtt.subscribe("test", test_handler);
                 }
             }
             std::cout << "MQTT task exiting..." << std::endl;

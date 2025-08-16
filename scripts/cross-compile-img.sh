@@ -1,10 +1,11 @@
 #!/bin/bash
 
+# This causes the script to exit immediately if any command fails
 set -e
 
 # === CONFIGURATION ===
-DOCKERFILE_PATH="..devcontainer/Dockerfile.arm64"
-BUILD_CONTEXT=".."
+DOCKERFILE_PATH=".devcontainer/Dockerfile.arm64"
+BUILD_CONTEXT="."
 
 # === 1. Setup QEMU for ARM builds ===
 echo "🔧 Setting up QEMU..."

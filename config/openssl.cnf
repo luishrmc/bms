@@ -11,10 +11,10 @@ ST = Minas Gerais
 L  = Belo Horizonte
 O  = UFMG
 OU = DELT
-CN = ipberryrasp.local
+CN = bms-ufmg.local
 
 [ alt_names ]
-DNS.1 = ipberryrasp.local
+DNS.1 = bms-ufmg.local
 DNS.2 = localhost
 DNS.3 = mosquitto
 

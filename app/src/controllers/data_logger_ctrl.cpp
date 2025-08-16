@@ -32,7 +32,8 @@
 
 using json = nlohmann::json;
 
-std::jthread start_data_logger_task(DataLoggerService &dl, queue_service::JsonQueue &in_queue, queue_service::JsonQueue &out_queue)
+std::jthread start_data_logger_task(DataLoggerService &dl, queue_service::JsonQueue &in_queue,
+                                    queue_service::JsonQueue &out_queue)
 {
     return std::jthread(
         [&dl, &in_queue, &out_queue](std::stop_token stoken)
@@ -47,7 +48,7 @@ std::jthread start_data_logger_task(DataLoggerService &dl, queue_service::JsonQu
                         continue;
                     }
                     dl.measurement(out_queue);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
             }

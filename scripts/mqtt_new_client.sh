@@ -3,10 +3,13 @@
 # Usage: ./create_new_client.sh <client_name>
 # Example: ./create_new_client.sh telemetry-node-1
 
+# This causes the script to exit immediately if any command fails
+set -e
+
 CLIENT_NAME="$1"
 OPENSSL_CONFIG="config/openssl.cnf"
 CA_DIR="config/mosquitto/certs"
-CLIENT_DIR="$CA_DIR/clients/$CLIENT_NAME"
+CLIENT_DIR="config/certs/$CLIENT_NAME"
 
 if [ -z "$CLIENT_NAME" ]; then
   echo "❌ ERROR: You must provide a client name."
