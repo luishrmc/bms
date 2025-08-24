@@ -1045,7 +1045,10 @@ dkms.conf
 # Raspberry Pi Pico disassembler file
 *.dis
 
-# MQTT File
+# MQTT Files
 **/mosquitto/
+
+# InfluxDB3 Files
+**/influxdb3/
 
 /build_*

@@ -31,3 +31,36 @@ services:
       - ../config/mosquitto/data:/mosquitto/data
       - ../config/mosquitto/log:/mosquitto/log
       - ../config/mosquitto/certs:/mosquitto/config/certs
+
+  influxdb3:
+    image: influxdb:3-core
+    container_name: influxdb3-core
+    user: "${UID:-1000}:${GID:-1000}"
+    # restart: on-failure:10
+    ports:
+      - "8181:8181"
+    volumes:
+      - ../config/influxdb3/core/data:/var/lib/influxdb3/data
+      - ../config/influxdb3/core/plugins:/var/lib/influxdb3/plugins
+    command:
+          - influxdb3
+          - serve
+          - --node-id=node0
+          - --object-store=file
+          - --data-dir=/var/lib/influxdb3/data
+          - --plugin-dir=/var/lib/influxdb3/plugins
+          - --http-bind=0.0.0.0:8181
+    environment:
+      LOG_FILTER: debug
+
+  influxdb3-explorer:
+    image: influxdata/influxdb3-ui:1.1.0
+    container_name: influxdb3-explorer
+    ports:
+      - "8888:80"
+      - "8889:8888"
+    volumes:
+      - ../config/influxdb3/explorer/config:/app-root/config:ro
+      - ../config/influxdb3/explorer/db:/db:rw
+    command:
+      - --mode=admin

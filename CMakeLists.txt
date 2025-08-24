@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ------------------------------------ PROJECT DEFINITIONS ------------------------------------ #
 project(
@@ -13,7 +14,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
@@ -90,20 +91,20 @@ CPMAddPackage(
 )
 
 # Catch2
-# CPMAddPackage(
-#     NAME Catch2
-#     GITHUB_REPOSITORY catchorg/Catch2
-#     GIT_TAG v3.8.1
-#     OPTIONS
-#         "CATCH_INSTALL_DOCS OFF"
-# )
-# list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
+CPMAddPackage(
+    NAME Catch2
+    GITHUB_REPOSITORY catchorg/Catch2
+    GIT_TAG v3.8.1
+    OPTIONS
+        "CATCH_INSTALL_DOCS OFF"
+)
+list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 
-# include(CTest)
-# include(Catch)
-# enable_testing()
-# find_package(Catch2 REQUIRED)
-# add_subdirectory(tests)
+include(CTest)
+include(Catch)
+enable_testing()
+find_package(Catch2 REQUIRED)
+add_subdirectory(tests)
 
 # ------------------------------------ SUBDIRECTORIES ------------------------------------ #
 add_subdirectory(app/src/services)

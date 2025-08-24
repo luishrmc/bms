@@ -4,13 +4,14 @@
         {
             "label": "x86 Build CMake (Debug)",
             "type": "shell",
-            "command": "cmake -B build_x86 -S . -DCMAKE_BUILD_TYPE=Debug -G Ninja",
+            // "command": "cmake -B build_x86 -S . -DCMAKE_BUILD_TYPE=Debug -G Ninja",
+            "command": "cmake -B build_x86 -S . -DCMAKE_BUILD_TYPE=Debug",
             "group": "build"
         },
         {
             "label": "x86 Compile (Debug)",
             "type": "shell",
-            "command": "cmake --build build_x86",
+            "command": "cmake --build build_x86 -j4",
             "dependsOn": "x86 Build CMake (Debug)",
             "group": "build"
         },
@@ -24,7 +25,7 @@
         {
             "label": "Unit Tests",
             "type": "shell",
-            "command": "cd build && ctest --output-on-failure",
+            "command": "cd build_x86 && ctest --output-on-failure",
             "dependsOn": "Compile (Debug)",
             "group": "test"
         },

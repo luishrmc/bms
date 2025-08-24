@@ -20,6 +20,25 @@
         }
       ],
       "preLaunchTask": "x86 Compile (Debug)"
+    },
+    {
+      "name": "(gdb) Unit Test",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_x86/tests/UnitTestInfluxdb",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "x86 Compile (Debug)"
     }
   ]
 }
