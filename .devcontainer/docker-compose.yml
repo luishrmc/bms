@@ -7,30 +7,12 @@ services:
     volumes:
       # Mount your local workspace into the container
       - ..:/home/lumac/workspace:cached
-      - ../config/mosquitto/certs/mosquitto.crt:/etc/mosquitto-certs/mosquitto.crt:ro
     cap_add:
       - SYS_PTRACE
     security_opt:
       - seccomp=unconfined
     # Keep the container running
     command: sleep infinity
-    # Ensure the mosquitto broker is started before the app
-    depends_on:
-      - mosquitto
-
-  # The Eclipse Mosquitto MQTT broker service
-  mosquitto:
-    image: eclipse-mosquitto:2.0
-    container_name: mosquitto
-    restart: unless-stopped
-    ports:
-      - "8883:8883" # MQTT over TLS
-    volumes:
-      # Mount local directories for configuration, data, and logs
-      - ../config/mosquitto/config:/mosquitto/config
-      - ../config/mosquitto/data:/mosquitto/data
-      - ../config/mosquitto/log:/mosquitto/log
-      - ../config/mosquitto/certs:/mosquitto/config/certs
 
   influxdb3:
     image: influxdb:3-core

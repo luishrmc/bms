@@ -9,8 +9,8 @@ set(CTRL src/controllers)
 # Define the main executable and specify its source files
 add_executable(${BMS_EXEC_NAME}
     ${CTRL}/main.cpp
-    ${CTRL}/mqtt_ctrl.cpp
     ${CTRL}/data_logger_ctrl.cpp
+    ${CTRL}/influxdb_ctrl.cpp
 )
 
 # Add include directories needed for this target (e.g., generated config headers)
@@ -22,8 +22,8 @@ target_include_directories(${BMS_EXEC_NAME} PRIVATE
 
 # Link required internal libraries to the executable
 target_link_libraries(${BMS_EXEC_NAME} PRIVATE
-    mqtt_service_lib
     data_logger_service_lib
+    influxdb_service_lib
 )
 
 # Define any required compile-time macros for the target

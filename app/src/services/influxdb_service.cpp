@@ -117,7 +117,7 @@ arrow::Status InfluxDBService::insert(const std::string &lp_line)
     std::ostringstream url;
     url << "http://" << host_ << ":" << port_
         << "/api/v3/write_lp?db=" << database_
-        << "&precision=auto";
+        << "&precision=nanosecond";
 
     curl_easy_setopt(curl_, CURLOPT_URL, url.str().c_str());
     curl_easy_setopt(curl_, CURLOPT_POST, 1L);
@@ -140,8 +140,6 @@ arrow::Status InfluxDBService::insert(const std::string &lp_line)
 
 arrow::Status InfluxDBService::insert_batch(const std::vector<std::string> &lines)
 {
-    if (!curl_)
-        return arrow::Status::Invalid("CURL not initialized");
     if (lines.empty())
         return arrow::Status::OK();
 
@@ -156,7 +154,7 @@ arrow::Status InfluxDBService::insert_batch(const std::vector<std::string> &line
         if (i + 1 < lines.size())
             body.push_back('\n');
     }
-    return insert(body); // same endpoint/settings as single insert()
+    return insert(body);
 }
 
 // *********************** END OF FILE ******************************* //

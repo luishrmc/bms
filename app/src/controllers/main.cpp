@@ -20,8 +20,9 @@
 #include "config.hpp"
 #include <thread>
 #include <queue>
-#include "mqtt_ctrl.hpp"
 #include "data_logger_ctrl.hpp"
+#include "influxdb_ctrl.hpp"
+#include "spsc_ring_service.hpp"
 
 // -------------------------- Private Types --------------------------- //
 
@@ -38,29 +39,17 @@ int main()
 {
     std::cout << "[Main] Starting application: " << project_name << " v" << project_version << std::endl;
 
-    TlsConfig TLS = {
-        .ca_cert = "config/certs/mqtt/ca.crt",
-        .client_cert = "config/certs/mqtt/pi.crt",
-        .client_key = "config/certs/mqtt/pi.pem",
-        .verify_server = true};
-
-    MqttService mqtt(
-        MQTT_URL,
-        MQTT_CLIENT_ID,
-        MQTT_USER_NAME,
-        MQTT_PASSWORD,
-        MQTT_SOURCE_TOPIC,
-        TLS,
-        MQTT_DEFAULT_QOS,
-        std::chrono::milliseconds(MQTT_DEFAULT_TIME_OUT_MS));
-
     DataLoggerService dl("192.168.0.200", 502, 1);
 
-    queue_service::JsonQueue dl_2_mqtt;
-    queue_service::JsonQueue mqtt_2_dl;
+    InfluxDBService db(
+        "influxdb3-core",
+        8181,
+        "apiv3_n7_oUpwKZ7m2k_Y2qTK3UY3S3Py7CG8n8ZPuNz2zyAfL88Hsuu7Mok8KBG8MxJcjAM9NjPA6X3HKUE7ES5HZTA",
+        "voltage");
 
-    auto mqtt_task = start_mqtt_task(mqtt, mqtt_2_dl, dl_2_mqtt);
-    auto data_logger_task = start_data_logger_task(dl, dl_2_mqtt, mqtt_2_dl);
+    SPSCQueue<std::array<float, 16>> influx_queue(1024);
+    auto data_logger_task = start_data_logger_task(dl, influx_queue);
+    auto influxdb_task = start_influxdb_task(db, influx_queue);
 
     while (true)
     {

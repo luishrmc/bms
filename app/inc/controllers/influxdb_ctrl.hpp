@@ -1,9 +1,9 @@
 /**
- * @file        mqtt_ctrl.hpp
+ * @file        influxdb_ctrl.hpp
  * @author      Luis Maciel (luishrm@ufmg.br)
  * @brief       [Short description of the file’s purpose]
- * @version     0.1.0
- * @date        2025-07-21
+ * @version     0.0.1
+ * @date        2025-08-24
  *               _   _  _____  __  __   _____ 
  *              | | | ||  ___||  \/  | / ____|
  *              | | | || |_   | \  / || |  __
@@ -18,10 +18,11 @@
 #pragma once
 
 // ----------------------------- Includes ----------------------------- //
-#include "mqtt_service.hpp"
-#include <thread>
-#include "queue_service.hpp"
 
+#include "influxdb_service.hpp"
+#include "spsc_ring_service.hpp"
+#include <future>
+#include <thread>
 // -------------------------- Public Types ---------------------------- //
 
 // -------------------------- Public Defines -------------------------- //
@@ -30,5 +31,5 @@
 
 // ------------------------ Public Functions -------------------------- //
 
-std::jthread start_mqtt_task(MqttService& mqtt, queue_service::JsonQueue& in_queue, queue_service::JsonQueue& out_queue);
+std::jthread start_influxdb_task(InfluxDBService &db, SPSCQueue<std::array<float, 16>> &influx_queue);
 // *********************** END OF FILE ******************************* //

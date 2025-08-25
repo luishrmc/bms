@@ -5,7 +5,7 @@
  *              A service responsible for getting the voltage measurements
  *              from the L2M Datalogger8 rev. 3 BDJI board via Modbus-TCP.
  *
- * @version     0.2.1
+ * @version     0.3.0
  * @date        2025-07-18
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -25,8 +25,8 @@
 #include <cstdint>
 #include <optional>
 #include "modbus.hpp"
-#include "queue_service.hpp"
 #include <future>
+#include <array>
 
 // -------------------------- Public Types ---------------------------- //
 
@@ -39,86 +39,34 @@
 class DataLoggerService : public modbus
 {
 public:
-    enum dl_err_t : uint8_t
-    {
-        NO_ERROR = 0,
-        DISCONNECTED = 1,
-        CONNECTING = 2
-    };
-
     using modbus::modbus;
     DataLoggerService(const std::string &ip, uint16_t port, uint8_t s_id);
 
     uint8_t _mode{0};
     bool _ntp{false};
     bool _autocal{false};
-    uint32_t _sampling_period{0};   // [µs]
-    std::string _rtc_epoch{""};     // epoch-since-2000
-    uint16_t _board_temp{0};        // [°C]
-    std::string _board_uid{""};     // [UID]
-    std::string _fw_version{""};    // firmware version
-    uint16_t _fw_build{0};          // firmware build number
-    float _adc_channels[16]{0.0f};  // ADC channels
-    float _adc_scales[8]{0.0f};     // ADC scales
-    float _transd_scales[16]{0.0f}; // Transducer scales
-    float _transd_offsets[8]{0.0f}; // Transducer offsets
-    uint16_t _pga_gains[8]{0};      // PGA gains
+    uint32_t _sampling_period{0};       // [µs]
+    std::string _rtc_epoch{""};         // epoch-since-2000
+    uint16_t _board_temp{0};            // [°C]
+    std::string _board_uid{""};         // [UID]
+    std::string _fw_version{""};        // firmware version
+    uint16_t _fw_build{0};              // firmware build number
+    std::array<float, 16> _adc_channels; // ADC channels
 
     bool connect(uint8_t max_attempts);
     void disconnect();
     bool is_linked() const { return _is_linked; }
-    bool link(queue_service::JsonQueue &out_queue);
-    bool measurement(queue_service::JsonQueue &out_queue);
 
     /* --------------------------- Section 0 (read-only) --------------------------- */
     int read_status();
-    int read_act_sampling(); // [µs]
-    // TODO bool read_active_epoch();      // epoch-since-1-1-2000
     int read_channel(uint8_t ch); // ch 0-15
     int read_board_temp();        // [0.1 °C]
     int read_board_uid();
     int read_firmware_version();
 
-    /* ------------------- Section 1 (read active configuration) ------------------- */
-    int read_act_adc_scale(uint8_t ch);     // ch 0-7
-    int read_act_transd_scale(uint8_t ch);  // ch 0-15
-    int read_act_transd_offset(uint8_t ch); // ch 0-7
-    int read_act_pga_gain(uint8_t ch);      // ch 0-7
-
-    /* ------------------- Section 2 (set active configuration) ------------------- */
-    int write_adc_scale(uint8_t ch, float val);
-    int write_transd_scale(uint8_t ch, float val);
-    int write_transd_offset(uint8_t ch, float val);
-    int write_pga_gain(uint8_t ch, uint16_t val);
-    int write_sampling_period(uint32_t us);
-
-    // bool write_rtc_epoch(uint32_t epoch, uint16_t sub_seconds = 0); // TODO
-    // bool read_rtc_epoch(); // TODO
-    // bool write_rtc_alarm(uint32_t epoch, uint16_t sub_seconds = 0); // TODO
-    // bool read_rtc_alarm(); // TODO
-
-    /* --------------------------- Section 3 (system control) --------------------------- */
-    int write_password(uint32_t pwd);
-    int read_password(uint32_t &pwd);
-
     /* --------------------------- Section 4 (read all) --------------------------- */
     int read_all_channels();
     int read_all_config();
-
-    enum class Command : uint16_t
-    {
-        NO_CMD = 0,
-        SET_ADC_SCALING = 1,
-        SET_TRANSD_SCALING = 2,
-        SET_TRANSD_OFFSET = 3,
-        SET_PGA_GAIN = 4,
-        STORE_CONFIG = 16,
-        LOAD_CONFIG = 17,
-        ERASE_CONFIG = 18
-    };
-    int send_command(Command cmd);
-    int write_static_ip(uint32_t ip_be); // 0xAABBCCDD → AA.BB.CC.DD
-    int read_static_ip(uint32_t &ip_be); // 0xAABBCCDD → AA.BB.CC.DD
 
 private:
     std::mutex _mb_mtx;

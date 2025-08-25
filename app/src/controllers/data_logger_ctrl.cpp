@@ -2,7 +2,7 @@
  * @file        data_logger_ctrl.cpp
  * @author      Luis Maciel (luishrm@ufmg.br)
  * @brief       [Short description of the file’s purpose]
- * @version     0.0.1
+ * @version     0.3.0
  * @date        2025-07-26
  *               _   _  _____  __  __   _____
  *              | | | ||  ___||  \/  | / ____|
@@ -30,27 +30,22 @@
 
 // ------------------------- Main Functions ---------------------------- //
 
-using json = nlohmann::json;
-
-std::jthread start_data_logger_task(DataLoggerService &dl, queue_service::JsonQueue &in_queue,
-                                    queue_service::JsonQueue &out_queue)
+std::jthread start_data_logger_task(DataLoggerService &dl, SPSCQueue<std::array<float, 16>> &influx_queue)
 {
     return std::jthread(
-        [&dl, &in_queue, &out_queue](std::stop_token stoken)
+        [&dl, &influx_queue](std::stop_token stoken)
         {
             while (!stoken.stop_requested())
             {
                 while (dl.connect(3))
                 {
-                    if (!dl.is_linked())
+                    if (dl.read_all_channels() == 0)
                     {
-                        dl.link(out_queue);
-                        continue;
+                        influx_queue.try_push(dl._adc_channels);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(20));
                     }
-                    dl.measurement(out_queue);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
             }
         });
 }
