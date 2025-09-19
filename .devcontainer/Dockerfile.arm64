@@ -25,6 +25,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# ---------- Apache Arrow (C++) with Flight + Flight SQL ----------
+# Add official Apache Arrow APT repository for Debian Bookworm and install packages
+RUN apt-get update && \
+    wget https://packages.apache.org/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb && \
+    apt-get install -y ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb && \
+    rm apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb && \
+    apt-get update && \
+    apt-get install -y \
+      libarrow-dev \
+      libparquet-dev \
+      libarrow-flight-dev \
+      libarrow-flight-sql-dev \
+      # helpful (pulled transitively, but explicit is fine)
+      libgrpc-dev \
+      libprotobuf-dev \
+      protobuf-compiler \
+      liblz4-dev \
+      libre2-dev \
+      protobuf-compiler-grpc \
+    && rm -rf /var/lib/apt/lists/*
+
 # Switch to user and working directory
 USER $USERNAME
 WORKDIR /home/$USERNAME/app

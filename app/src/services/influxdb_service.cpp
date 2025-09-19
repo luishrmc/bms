@@ -18,9 +18,8 @@
 // ----------------------------- Includes ----------------------------- //
 
 #include "influxdb_service.hpp"
-#include "logging_service.hpp"
 #include <iostream>
-#include <arrow/result.h>
+#include <sstream>
 
 // -------------------------- Private Types --------------------------- //
 
@@ -28,9 +27,6 @@
 
 // -------------------------- Private Macros --------------------------- //
 
-using namespace arrow;
-using namespace arrow::flight;
-using namespace sql;
 // ------------------------ Private Variables -------------------------- //
 
 // ---------------------- Function Prototypes -------------------------- //
@@ -59,22 +55,9 @@ InfluxDBService::~InfluxDBService()
     curl_global_cleanup();
 }
 
-arrow::Status InfluxDBService::connect()
+bool InfluxDBService::connect()
 {
-    app_log(LogLevel::Info,
-            "Attempting to connect to InfluxDB at " + host_ + ":" + std::to_string(port_));
-
-    // Build Flight location
-    ARROW_ASSIGN_OR_RAISE(auto loc, arrow::flight::Location::ForGrpcTcp(host_, port_));
-    app_log(LogLevel::Info, "Location created successfully.");
-
-    // Connect Flight client
-    ARROW_ASSIGN_OR_RAISE(auto client, arrow::flight::FlightClient::Connect(loc));
-    app_log(LogLevel::Info, "FlightClient connected successfully.");
-
-    sql_client_ = std::make_unique<arrow::flight::sql::FlightSqlClient>(std::move(client));
-
-    app_log(LogLevel::Info, "Flight SQL client is ready.");
+    std::cout << "Attempting to connect to InfluxDB at " << host_ << ":" << port_ << std::endl;
 
     std::ostringstream url;
     url << "http://" << host_ << ":" << port_ << "/health";
@@ -92,10 +75,11 @@ arrow::Status InfluxDBService::connect()
     curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &code);
     curl_slist_free_all(headers);
 
-    if (rc != CURLE_OK)
-        return arrow::Status::IOError("CURL error: " + std::string(curl_easy_strerror(rc)));
-    if (code != 200)
-        return arrow::Status::UnknownError("Health check failed. HTTP " + std::to_string(code));
+    if (rc != CURLE_OK || code != 200)
+    {
+        std::cout << "Failed to connect to InfluxDB: " << curl_easy_strerror(rc) << " (HTTP " << code << ")" << std::endl;
+        return false;
+    }
 
     curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
     curl_easy_setopt(curl_, CURLOPT_TCP_KEEPIDLE, 30L);  // seconds before probes
@@ -108,11 +92,11 @@ arrow::Status InfluxDBService::connect()
     // Thread-safety nicety
     curl_easy_setopt(curl_, CURLOPT_NOSIGNAL, 1L);
 
-    app_log(LogLevel::Info, "HTTP connection to InfluxDB is healthy.");
-    return arrow::Status::OK();
+    std::cout << "HTTP connection to InfluxDB is healthy." << std::endl;
+    return true;
 }
 
-arrow::Status InfluxDBService::insert(const std::string &lp_line)
+bool InfluxDBService::insert(const std::string &lp_line)
 {
     std::ostringstream url;
     url << "http://" << host_ << ":" << port_
@@ -129,19 +113,20 @@ arrow::Status InfluxDBService::insert(const std::string &lp_line)
     CURLcode rc = curl_easy_perform(curl_);
     curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &code);
 
-    if (rc != CURLE_OK)
-        return arrow::Status::IOError(std::string("CURL error: ") + curl_easy_strerror(rc));
-    if (code != 204)
-        return arrow::Status::Invalid("Write failed, HTTP " + std::to_string(code));
+    if (rc != CURLE_OK || code != 204)
+    {
+        std::cout << "Insert failed: " << curl_easy_strerror(rc) << " (HTTP " << code << ")" << std::endl;
+        return false;
+    }
 
-    app_log(LogLevel::Info, "Insert successful.");
-    return arrow::Status::OK();
+    std::cout << "Insert successful." << std::endl;
+    return true;
 }
 
-arrow::Status InfluxDBService::insert_batch(const std::vector<std::string> &lines)
+bool InfluxDBService::insert_batch(const std::vector<std::string> &lines)
 {
     if (lines.empty())
-        return arrow::Status::OK();
+        return true;
 
     std::string body;
     size_t total = 0;

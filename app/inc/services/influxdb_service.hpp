@@ -22,11 +22,8 @@
 #include <string>
 #include <time.h>
 #include <curl/curl.h>
+#include <vector>
 
-#include <arrow/flight/api.h>
-#include <arrow/flight/client.h>
-#include <arrow/flight/sql/api.h>
-#include <arrow/flight/sql/client.h>
 // -------------------------- Public Types ---------------------------- //
 
 // -------------------------- Public Defines -------------------------- //
@@ -43,16 +40,15 @@ public:
                     const std::string &token,
                     const std::string &database);
     ~InfluxDBService();
-    arrow::Status connect();
-    arrow::Status insert(const std::string &lp_line);
-    arrow::Status insert_batch(const std::vector<std::string> &lines);
+    bool connect();
+    bool insert(const std::string &lp_line);
+    bool insert_batch(const std::vector<std::string> &lines);
 
 private:
     std::string host_;
     int port_;
     std::string token_;
     std::string database_;
-    std::unique_ptr<arrow::flight::sql::FlightSqlClient> sql_client_;
 
     CURL *curl_;
     std::string auth_;

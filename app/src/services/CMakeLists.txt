@@ -16,21 +16,13 @@ target_include_directories(data_logger_service_lib PUBLIC
 )
 
 # --------------------------- INFLUXDB LIBRARY --------------------------- #
-find_package(Arrow REQUIRED)
-find_package(ArrowFlight REQUIRED)
-find_package(ArrowFlightSql REQUIRED)
-find_package(Parquet REQUIRED)
 
 add_library(influxdb_service_lib
     influxdb_service.cpp
 )
 
 target_link_libraries(influxdb_service_lib PUBLIC
-    fmt::fmt                           
-    Arrow::arrow_shared
-    Arrow::arrow_static
-    ArrowFlight::arrow_flight_shared
-    ArrowFlightSql::arrow_flight_sql_shared
+    curl
 )
 
 target_include_directories(influxdb_service_lib PUBLIC

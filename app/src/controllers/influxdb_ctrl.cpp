@@ -20,8 +20,9 @@
 #include "spsc_ring_service.hpp"
 #include "influxdb_ctrl.hpp"
 #include "config.hpp"
-#include "logging_service.hpp"
 #include <iomanip>
+#include <array>
+#include <iostream>
 // -------------------------- Private Types --------------------------- //
 
 // -------------------------- Private Defines -------------------------- //
@@ -55,7 +56,7 @@ std::jthread start_influxdb_task(InfluxDBService &db, SPSCQueue<std::array<float
                     if (batch.size() == BATCH_SIZE)
                     {
                         db.insert_batch(batch);
-                        app_log(LogLevel::Info, "Flushed batch to InfluxDB");
+                        std::cout << "Flushed batch to InfluxDB" << std::endl;
                         batch.clear();
                         last_flush = std::chrono::steady_clock::now();
                     }
