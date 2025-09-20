@@ -30,7 +30,7 @@
 
 // ------------------------- Main Functions ---------------------------- //
 
-std::jthread start_data_logger_task(DataLoggerService &dl, SPSCQueue<std::array<float, 16>> &influx_queue)
+std::jthread start_data_logger_task(DataLoggerService &dl, SPSCQueue<std::array<float, 8>> &influx_queue)
 {
     return std::jthread(
         [&dl, &influx_queue](std::stop_token stoken)
@@ -44,6 +44,8 @@ std::jthread start_data_logger_task(DataLoggerService &dl, SPSCQueue<std::array<
                         influx_queue.try_push(dl._adc_channels);
                         std::this_thread::sleep_for(std::chrono::milliseconds(20));
                     }
+                    else
+                        dl.disconnect();
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
             }

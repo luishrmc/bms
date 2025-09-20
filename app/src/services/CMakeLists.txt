@@ -23,6 +23,7 @@ add_library(influxdb_service_lib
 
 target_link_libraries(influxdb_service_lib PUBLIC
     curl
+    fmt::fmt
 )
 
 target_include_directories(influxdb_service_lib PUBLIC

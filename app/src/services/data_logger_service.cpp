@@ -79,22 +79,6 @@ int DataLoggerService::read_status()
     return err;
 }
 
-int DataLoggerService::read_channel(uint8_t ch)
-{
-    std::lock_guard<std::mutex> lock(_mb_mtx);
-    if (ch < 16)
-    {
-        uint16_t buff[2];
-        int err = modbus_read_input_registers(REG_CH_BASE + ch * 2u, 2, buff);
-        if (err == 0)
-        {
-            _adc_channels[ch] = std::bit_cast<float>(buff[0] << 16 | buff[1]);
-        }
-        return err;
-    }
-    return EX_ILLEGAL_VALUE;
-}
-
 int DataLoggerService::read_board_temp()
 {
     std::lock_guard<std::mutex> lock(_mb_mtx);
@@ -136,8 +120,13 @@ int DataLoggerService::read_all_channels()
     std::lock_guard<std::mutex> lock(_mb_mtx);
     int err = modbus_read_input_registers(REG_CH_BASE, 32, buff);
     if (err == 0)
-        for (uint8_t ch = 0; ch < 32; ch+=2)
-            _adc_channels[ch] = std::bit_cast<float>(buff[ch] << 16 | buff[ch + 1]);
+    {
+        memset(&_adc_channels, 0, sizeof(_adc_channels));
+        for (uint8_t ch = 0; ch < 16; ch += 2)
+        {
+            _adc_channels[ch / 2] = std::bit_cast<float>(buff[ch] << 16 | buff[ch + 1]);
+        }
+    }
     return err;
 }
 

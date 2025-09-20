@@ -24,6 +24,16 @@
 #include "influxdb_ctrl.hpp"
 #include "spsc_ring_service.hpp"
 
+const char *influx_host = std::getenv("INFLUX_HOST");
+const char *influx_db = std::getenv("INFLUX_DB");
+const char *influx_token = std::getenv("INFLUX_TOKEN");
+
+std::string host = influx_host ? influx_host : "localhost";
+int port = 8181;
+std::string token = influx_token ? influx_token : "apiv3_VPiuJuMKt8Nawcrvm97YNBtMFUpY6Cv_460ED1QpkW1QLo-U9fhJJZJ0YQsbxnx3PJ1JF_GogCkddk3uQm-gCQ";
+// std::string db_name = influx_db ? influx_db : "voltage";
+std::string db_name = "voltage";
+
 // -------------------------- Private Types --------------------------- //
 
 // -------------------------- Private Defines -------------------------- //
@@ -40,14 +50,9 @@ int main()
     std::cout << "[Main] Starting application: " << project_name << " v" << project_version << std::endl;
 
     DataLoggerService dl("192.168.0.200", 502, 1);
+    InfluxDBService db(host, port, token, db_name);
 
-    InfluxDBService db(
-        "influxdb3-core",
-        8181,
-        "apiv3_n7_oUpwKZ7m2k_Y2qTK3UY3S3Py7CG8n8ZPuNz2zyAfL88Hsuu7Mok8KBG8MxJcjAM9NjPA6X3HKUE7ES5HZTA",
-        "voltage");
-
-    SPSCQueue<std::array<float, 16>> influx_queue(1024);
+    SPSCQueue<std::array<float, 8>> influx_queue(1024);
     auto data_logger_task = start_data_logger_task(dl, influx_queue);
     auto influxdb_task = start_influxdb_task(db, influx_queue);
 

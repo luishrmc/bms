@@ -1,56 +1,34 @@
 # syntax=docker/dockerfile:1
-
-FROM debian:bookworm
+FROM --platform=linux/arm64 debian:bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 
 ARG USERNAME=lumac
 
+# Install only the runtime shared libraries your binary needs
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    sudo \
-    ca-certificates \
-    tzdata && \
-    groupadd --gid 1000 $USERNAME && \
-    useradd --uid 1000 --gid 1000 -m $USERNAME && \
-    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME && \
-    chmod 0440 /etc/sudoers.d/$USERNAME
-
-# Install only necessary runtime libraries
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libssl3 \
-    libstdc++6 \
-    libgcc-s1 \
-    libcurl4 \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# ---------- Apache Arrow (C++) with Flight + Flight SQL ----------
-# Add official Apache Arrow APT repository for Debian Bookworm and install packages
-RUN apt-get update && \
-    wget https://packages.apache.org/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb && \
-    apt-get install -y ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb && \
-    rm apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb && \
-    apt-get update && \
-    apt-get install -y \
-      libarrow-dev \
-      libparquet-dev \
-      libarrow-flight-dev \
-      libarrow-flight-sql-dev \
-      # helpful (pulled transitively, but explicit is fine)
-      libgrpc-dev \
-      libprotobuf-dev \
-      protobuf-compiler \
-      liblz4-dev \
-      libre2-dev \
-      protobuf-compiler-grpc \
+        ca-certificates tzdata sudo \
+        libstdc++6 libgcc-s1 \
+        libssl3 libcurl4 zlib1g \
+        liblz4-1 libre2-9 \
+        libprotobuf32 libgrpc++1 libabsl20220623 \
     && rm -rf /var/lib/apt/lists/*
 
-# Switch to user and working directory
+# Create non-root user
+RUN groupadd --gid 1000 $USERNAME && \
+    useradd  --uid 1000 --gid 1000 -m $USERNAME && \
+    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME && \
+    chmod 0440 /etc/sudoers.d/$USERNAME
+
 USER $USERNAME
 WORKDIR /home/$USERNAME/app
 
-# Copy the ARM64 cross-compiled binary (from build system)
-COPY build_arm64/project_output/bms .
+# Copy the prebuilt ARM64 binary from your host build
+COPY --chown=$USERNAME:$USERNAME build_arm64/project_output/bms ./bms
+
+# Ensure binary is executable
+RUN chmod +x ./bms
 
 ENTRYPOINT ["./bms"]

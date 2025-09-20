@@ -29,6 +29,7 @@ RUN dpkg --add-architecture arm64 && \
     libc6:arm64 \
     libstdc++6:arm64 \
     libgcc-s1:arm64 \
+    libcurl4-openssl-dev:arm64 \
     gcc-aarch64-linux-gnu \
     g++-aarch64-linux-gnu
 
@@ -53,7 +54,6 @@ RUN apt-get update && \
     curl unzip zip \
     libcurl4-openssl-dev && \
     rm -rf /var/lib/apt/lists/*
-
 
 # Switch to user and working directory
 USER $USERNAME

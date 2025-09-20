@@ -30,5 +30,5 @@
 
 // ------------------------ Public Functions -------------------------- //
 
-std::jthread start_data_logger_task(DataLoggerService &dl, SPSCQueue<std::array<float, 16>> &influx_queue);
+std::jthread start_data_logger_task(DataLoggerService &dl, SPSCQueue<std::array<float, 8>> &influx_queue);
 // *********************** END OF FILE ******************************* //

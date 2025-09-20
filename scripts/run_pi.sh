@@ -10,7 +10,7 @@ docker compose -f "$COMPOSE_FILE" pull
 echo "🧹 Stopping any running containers..."
 docker compose -f "$COMPOSE_FILE" down
 
-echo "🚀 Starting BMS and Mosquitto containers..."
+echo "🚀 Starting BMS containers..."
 docker compose -f "$COMPOSE_FILE" up -d
 
 echo "✅ BMS stack is running!"

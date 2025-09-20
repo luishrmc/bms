@@ -35,17 +35,17 @@ constexpr size_t BATCH_SIZE = 10;
 constexpr auto MAX_LATENCY = std::chrono::milliseconds(200); // flush even if batch not full
 // ---------------------- Function Prototypes -------------------------- //
 
-void data_to_lp(std::array<float, 16> &data, std::vector<std::string> &batch);
+void data_to_lp(std::array<float, 8> &data, std::vector<std::string> &batch);
 // ------------------------- Main Functions ---------------------------- //
 
-std::jthread start_influxdb_task(InfluxDBService &db, SPSCQueue<std::array<float, 16>> &influx_queue)
+std::jthread start_influxdb_task(InfluxDBService &db, SPSCQueue<std::array<float, 8>> &influx_queue)
 {
     return std::jthread(
         [&db, &influx_queue](std::stop_token stoken)
         {
             std::vector<std::string> batch;
             batch.reserve(12);
-            std::array<float, 16> data;
+            std::array<float, 8> data;
             db.connect();
             auto last_flush = std::chrono::steady_clock::now();
             while (!stoken.stop_requested())
@@ -56,7 +56,6 @@ std::jthread start_influxdb_task(InfluxDBService &db, SPSCQueue<std::array<float
                     if (batch.size() == BATCH_SIZE)
                     {
                         db.insert_batch(batch);
-                        std::cout << "Flushed batch to InfluxDB" << std::endl;
                         batch.clear();
                         last_flush = std::chrono::steady_clock::now();
                     }
@@ -78,7 +77,7 @@ std::jthread start_influxdb_task(InfluxDBService &db, SPSCQueue<std::array<float
         });
 }
 
-void data_to_lp(std::array<float, 16> &data, std::vector<std::string> &batch)
+void data_to_lp(std::array<float, 8> &data, std::vector<std::string> &batch)
 {
     std::ostringstream lp_line;
     lp_line << "bank0,sensor_id=35786FCF ";

@@ -18,6 +18,7 @@
 // ----------------------------- Includes ----------------------------- //
 
 #include "influxdb_service.hpp"
+#include "logging_service.hpp"
 #include <iostream>
 #include <sstream>
 
@@ -57,7 +58,7 @@ InfluxDBService::~InfluxDBService()
 
 bool InfluxDBService::connect()
 {
-    std::cout << "Attempting to connect to InfluxDB at " << host_ << ":" << port_ << std::endl;
+    app_log(LogLevel::Info, fmt::format("Attempting to connect to InfluxDB at {}:{}", host_, port_));
 
     std::ostringstream url;
     url << "http://" << host_ << ":" << port_ << "/health";
@@ -77,7 +78,7 @@ bool InfluxDBService::connect()
 
     if (rc != CURLE_OK || code != 200)
     {
-        std::cout << "Failed to connect to InfluxDB: " << curl_easy_strerror(rc) << " (HTTP " << code << ")" << std::endl;
+        app_log(LogLevel::Error, fmt::format("Failed to connect to InfluxDB: {} (HTTP {})", curl_easy_strerror(rc), code));
         return false;
     }
 
@@ -92,7 +93,7 @@ bool InfluxDBService::connect()
     // Thread-safety nicety
     curl_easy_setopt(curl_, CURLOPT_NOSIGNAL, 1L);
 
-    std::cout << "HTTP connection to InfluxDB is healthy." << std::endl;
+    app_log(LogLevel::Info, "HTTP connection to InfluxDB is healthy.");
     return true;
 }
 
@@ -115,11 +116,10 @@ bool InfluxDBService::insert(const std::string &lp_line)
 
     if (rc != CURLE_OK || code != 204)
     {
-        std::cout << "Insert failed: " << curl_easy_strerror(rc) << " (HTTP " << code << ")" << std::endl;
+        app_log(LogLevel::Error, fmt::format("Insert failed: {} (HTTP {})", curl_easy_strerror(rc), code));
         return false;
     }
-
-    std::cout << "Insert successful." << std::endl;
+    app_log(LogLevel::Info, "Insert successful.");
     return true;
 }
 

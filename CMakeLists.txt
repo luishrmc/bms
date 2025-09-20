@@ -59,20 +59,22 @@ CPMAddPackage(
 )
 
 # Catch2
-CPMAddPackage(
-    NAME Catch2
-    GITHUB_REPOSITORY catchorg/Catch2
-    GIT_TAG v3.8.1
-    OPTIONS
-        "CATCH_INSTALL_DOCS OFF"
-)
-list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    CPMAddPackage(
+        NAME Catch2
+        GITHUB_REPOSITORY catchorg/Catch2
+        GIT_TAG v3.8.1
+        OPTIONS
+            "CATCH_INSTALL_DOCS OFF"
+    )
+    list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 
-# include(CTest)
-# include(Catch)
-# enable_testing()
-# find_package(Catch2 REQUIRED)
-# add_subdirectory(tests)
+    include(CTest)
+    include(Catch)
+    enable_testing()
+    find_package(Catch2 REQUIRED)
+    add_subdirectory(tests)
+endif()
 
 # ------------------------------------ SUBDIRECTORIES ------------------------------------ #
 add_subdirectory(app/src/services)

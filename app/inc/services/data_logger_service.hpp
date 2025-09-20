@@ -45,13 +45,13 @@ public:
     uint8_t _mode{0};
     bool _ntp{false};
     bool _autocal{false};
-    uint32_t _sampling_period{0};       // [µs]
-    std::string _rtc_epoch{""};         // epoch-since-2000
-    uint16_t _board_temp{0};            // [°C]
-    std::string _board_uid{""};         // [UID]
-    std::string _fw_version{""};        // firmware version
-    uint16_t _fw_build{0};              // firmware build number
-    std::array<float, 16> _adc_channels; // ADC channels
+    uint32_t _sampling_period{0};           // [µs]
+    std::string _rtc_epoch{""};             // epoch-since-2000
+    uint16_t _board_temp{0};                // [°C]
+    std::string _board_uid{""};             // [UID]
+    std::string _fw_version{""};            // firmware version
+    uint16_t _fw_build{0};                  // firmware build number
+    std::array<float, 8> _adc_channels;    // ADC channels
 
     bool connect(uint8_t max_attempts);
     void disconnect();
@@ -59,7 +59,6 @@ public:
 
     /* --------------------------- Section 0 (read-only) --------------------------- */
     int read_status();
-    int read_channel(uint8_t ch); // ch 0-15
     int read_board_temp();        // [0.1 °C]
     int read_board_uid();
     int read_firmware_version();

@@ -31,5 +31,5 @@
 
 // ------------------------ Public Functions -------------------------- //
 
-std::jthread start_influxdb_task(InfluxDBService &db, SPSCQueue<std::array<float, 16>> &influx_queue);
+std::jthread start_influxdb_task(InfluxDBService &db, SPSCQueue<std::array<float, 8>> &influx_queue);
 // *********************** END OF FILE ******************************* //
