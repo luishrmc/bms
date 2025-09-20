@@ -22,7 +22,7 @@
 #include <queue>
 #include "data_logger_ctrl.hpp"
 #include "influxdb_ctrl.hpp"
-#include "spsc_ring_service.hpp"
+#include "mpsc_ring_service.hpp"
 
 const char *influx_host = std::getenv("INFLUX_HOST");
 const char *influx_db = std::getenv("INFLUX_DB");
@@ -49,11 +49,13 @@ int main()
 {
     std::cout << "[Main] Starting application: " << project_name << " v" << project_version << std::endl;
 
-    DataLoggerService dl("192.168.0.200", 502, 1);
+    DataLoggerService dl1("192.168.7.200", 502, 1);
+    DataLoggerService dl2("192.168.7.2", 502, 1);
     InfluxDBService db(host, port, token, db_name);
 
-    SPSCQueue<std::array<float, 8>> influx_queue(1024);
-    auto data_logger_task = start_data_logger_task(dl, influx_queue);
+    MPSCQueue<std::string> influx_queue(1024);
+    auto dl1_task = start_data_logger_task(dl1, influx_queue);
+    auto dl2_task = start_data_logger_task(dl2, influx_queue);
     auto influxdb_task = start_influxdb_task(db, influx_queue);
 
     while (true)

@@ -18,7 +18,7 @@
 #pragma once
 
 // ----------------------------- Includes ----------------------------- //
-#include "spsc_ring_service.hpp"
+#include "mpsc_ring_service.hpp"
 #include "data_logger_service.hpp"
 #include <thread>
 
@@ -30,5 +30,5 @@
 
 // ------------------------ Public Functions -------------------------- //
 
-std::jthread start_data_logger_task(DataLoggerService &dl, SPSCQueue<std::array<float, 8>> &influx_queue);
+std::jthread start_data_logger_task(DataLoggerService &dl, MPSCQueue<std::string> &influx_queue);
 // *********************** END OF FILE ******************************* //

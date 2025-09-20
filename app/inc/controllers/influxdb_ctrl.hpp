@@ -20,7 +20,7 @@
 // ----------------------------- Includes ----------------------------- //
 
 #include "influxdb_service.hpp"
-#include "spsc_ring_service.hpp"
+#include "mpsc_ring_service.hpp"
 #include <future>
 #include <thread>
 // -------------------------- Public Types ---------------------------- //
@@ -31,5 +31,5 @@
 
 // ------------------------ Public Functions -------------------------- //
 
-std::jthread start_influxdb_task(InfluxDBService &db, SPSCQueue<std::array<float, 8>> &influx_queue);
+std::jthread start_influxdb_task(InfluxDBService &db, MPSCQueue<std::string> &influx_queue);
 // *********************** END OF FILE ******************************* //
