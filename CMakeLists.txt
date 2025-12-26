@@ -58,6 +58,22 @@ CPMAddPackage(
         "FMT_OS OFF"
 )
 
+# Paho C++ + bundled Paho C
+CPMAddPackage(
+  NAME paho-mqttpp3
+  GITHUB_REPOSITORY eclipse-paho/paho.mqtt.cpp
+  GIT_TAG v1.5.3
+
+  OPTIONS
+    "PAHO_WITH_MQTT_C ON"          # build bundled C lib; avoids find_package failure
+    "PAHO_BUILD_STATIC ON"         # produce static lib (good for embedded)
+    "PAHO_BUILD_SHARED OFF"
+    "PAHO_WITH_SSL OFF"
+    "PAHO_BUILD_EXAMPLES OFF"
+    "PAHO_BUILD_SAMPLES OFF"
+    "PAHO_BUILD_TESTS OFF"
+)
+
 # Catch2
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
     CPMAddPackage(
@@ -75,6 +91,11 @@ if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
     find_package(Catch2 REQUIRED)
     add_subdirectory(tests)
 endif()
+
+# ------------------------------------ REQUIREMENTS ------------------------------------ #
+find_package(Boost REQUIRED COMPONENTS system thread chrono)
+find_package(Threads REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 # ------------------------------------ SUBDIRECTORIES ------------------------------------ #
 add_subdirectory(app/src/services)

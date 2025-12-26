@@ -1045,7 +1045,5 @@ dkms.conf
 # Raspberry Pi Pico disassembler file
 *.dis
 
-# InfluxDB3 Files
-**/influxdb3/
-
 /build_*
+/.venv/

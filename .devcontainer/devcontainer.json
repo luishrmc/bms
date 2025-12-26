@@ -1,27 +1,46 @@
 {
-    "name": "C++ Debian:bookworm-12",
-    // Point to your Docker Compose file
+    "name": "ATR Dev C++ and Python",
     "dockerComposeFile": "docker-compose.yml",
-    // The service VS Code should connect to
-    "service": "bms",
-
-    "workspaceFolder": "/home/lumac/workspace",
-    "remoteUser": "lumac",
+    "service": "app",
+    "workspaceFolder": "/home/bms/workspace",
+    "remoteUser": "bms",
+    "forwardPorts": [
+        8000
+    ],
+    "postCreateCommand": "python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt",
     "customizations": {
         "vscode": {
             "extensions": [
+                // --- Python stack ---
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.debugpy",
+                "visualstudioexptteam.vscodeintellicode",
+                "kevinrose.vsc-python-indent",
+                // --- C/C++ stack ---
                 "ms-vscode.cpptools",
                 "ms-vscode.cmake-tools",
-                "cheshirekow.cmake-format",
-                "vadimcn.vscode-lldb"
+                "vadimcn.vscode-lldb",
+                // --- AI & Git tools ---
+                "GitHub.copilot",
+                "GitHub.copilot-chat",
+                "mhutchie.git-graph"
             ],
             "settings": {
+                // --- Python ---
+                "python.defaultInterpreterPath": "/usr/bin/python3",
+                "python.analysis.typeCheckingMode": "basic",
+                "python.formatting.provider": "black",
+                "python.linting.enabled": true,
+                "python.linting.flake8Enabled": true,
+                "python.testing.pytestEnabled": true,
+                // --- C/C++ ---
                 "C_Cpp.default.compilerPath": "/usr/bin/g++",
-                "C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
                 "C_Cpp.default.cppStandard": "c++20",
-                "terminal.integrated.defaultProfile.linux": "bash",
                 "cmake.configureOnOpen": true,
-                "cmake.generator": "Ninja"
+                "cmake.generator": "Ninja",
+                // Terminal
+                "terminal.integrated.defaultProfile.linux": "bash"
             }
         }
     }

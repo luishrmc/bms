@@ -1,60 +1,40 @@
 # syntax=docker/dockerfile:1
 
-FROM debian:bookworm
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_NO_CACHE_DIR=1
+# Ensure the path for local pip packages is included
+ENV PATH="/home/bms/.local/bin:${PATH}" 
 
-ARG USERNAME=lumac
+# --- Stage 1: Install Core Utilities and Bash ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    sudo ca-certificates tzdata curl lsb-release wget git openssh-client pkg-config unzip zip locales
 
-# Create the user first (needed before switching user)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    sudo \
-    ca-certificates \
-    tzdata \
-    lsb-release \
-    wget \
-    && \
-    groupadd --gid 1000 $USERNAME && \
-    useradd --uid 1000 --gid 1000 -m $USERNAME && \
-    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME && \
-    chmod 0440 /etc/sudoers.d/$USERNAME
+# --- Stage 2: Create the 'bms' user ---
+ARG USERNAME=bms
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && echo $USERNAME ALL=\(ALL\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
 
-# Add ARM64 architecture and install ARM64-specific packages
-RUN dpkg --add-architecture arm64 && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-    libssl-dev:arm64 \
-    libc6:arm64 \
-    libstdc++6:arm64 \
-    libgcc-s1:arm64 \
-    libcurl4-openssl-dev:arm64 \
-    gcc-aarch64-linux-gnu \
-    g++-aarch64-linux-gnu
-
-# Dev tools
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    ninja-build \
-    gdb \
-    cppcheck \
-    ccache \
-    git \
-    pkg-config \
-    libssl-dev \
-    libgrpc-dev \
-    libprotobuf-dev \
-    protobuf-compiler \
-    liblz4-dev \
-    libre2-dev \
-    protobuf-compiler-grpc \
-    curl unzip zip \
-    libcurl4-openssl-dev && \
-    rm -rf /var/lib/apt/lists/*
-
-# Switch to user and working directory
-USER $USERNAME
-WORKDIR /home/$USERNAME/workspace
+# --- Stage 3: Install Remaining Dependencies ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Python 3.12 + pip/venv
+    python3 python3-pip python3-venv python3-dev \
+    # General graphics/font libs
+    libgl1 libfontconfig1 libfreetype6 libglib2.0-0 fonts-dejavu-core \
+    libssl-dev liblz4-dev libre2-dev zlib1g-dev libcurl4-openssl-dev \
+    # C/C++ toolchain + build tools
+    build-essential cmake ninja-build gdb lldb cppcheck ccache \
+    # Clean up apt lists to keep the image small
+    # C++ Libraries
+    libboost-all-dev \
+    nlohmann-json3-dev \
+    && rm -rf /var/lib/apt/lists/*

@@ -1,0 +1,14 @@
+# ---- MQTT Client ----
+paho-mqtt
+
+# ---- Data & plotting ----
+numpy
+matplotlib
+pandas
+
+# ---- InfluxDB 3 client ----
+influxdb3-python
+
+# ---- Testing ----
+pytest
+pytest-timeout

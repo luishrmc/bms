@@ -1,0 +1,1054 @@
+{
+    "id": null,
+    "uid": "weather-overview-v2",
+    "title": "Weather Station Overview v2",
+    "tags": [
+        "weather",
+        "sensors",
+        "influxdb3"
+    ],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "5s",
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "panels": [
+        {
+            "id": 1,
+            "title": "Environment Now",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 5,
+                "h": 6
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  temperature_c AS \"Temp\",\n  humidity_pct AS \"Humidity\"\nFROM weather_data\nORDER BY time DESC\nLIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Temp"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            },
+                            {
+                                "id": "displayName",
+                                "value": "Temp"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "blue",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 20
+                                        },
+                                        {
+                                            "color": "orange",
+                                            "value": 26
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 30
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Humidity"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "percent"
+                            },
+                            {
+                                "id": "displayName",
+                                "value": "Humidity"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 30
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 70
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value_and_name",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 3,
+            "title": "Air Quality (CO₂)",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 5,
+                "y": 0,
+                "w": 4,
+                "h": 6
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  air_quality_co2_ppm\nFROM weather_data\nORDER BY time DESC\nLIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "ppm",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 800
+                            },
+                            {
+                                "color": "red",
+                                "value": 1200
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "auto",
+                "textMode": "value",
+                "colorMode": "background",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 5,
+            "title": "UV Index",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 9,
+                "y": 0,
+                "w": 4,
+                "h": 6
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  uv_index AS \"UV Index\"\nFROM weather_data\nORDER BY time DESC\nLIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "decimals": 1,
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 3
+                            },
+                            {
+                                "color": "orange",
+                                "value": 6
+                            },
+                            {
+                                "color": "red",
+                                "value": 8
+                            },
+                            {
+                                "color": "purple",
+                                "value": 11
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value_and_name",
+                "colorMode": "background",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 4,
+            "title": "Gas Safety",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 13,
+                "y": 0,
+                "w": 6,
+                "h": 6
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  flammable_gas_ppm AS \"Flammable\",\n  toxic_gas_ppm AS \"Toxic\"\nFROM weather_data\nORDER BY time DESC\nLIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "ppm",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 150
+                            },
+                            {
+                                "color": "red",
+                                "value": 300
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Flammable"
+                        },
+                        "properties": [
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "green",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 200
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 400
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Toxic"
+                        },
+                        "properties": [
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "green",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 100
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 200
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "vertical",
+                "textMode": "value_and_name",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 2,
+            "title": "Battery Voltage",
+            "type": "gauge",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 19,
+                "y": 0,
+                "w": 5,
+                "h": 6
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  battery_voltage AS \"Voltage\"\nFROM weather_data\nORDER BY time DESC\nLIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "min": 3,
+                    "max": 4.2,
+                    "unit": "volt",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 3.3
+                            },
+                            {
+                                "color": "green",
+                                "value": 3.7
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "showThresholdLabels": false,
+                "showThresholdMarkers": true,
+                "orientation": "auto"
+            }
+        },
+        {
+            "id": 7,
+            "title": "Temperature & Humidity History",
+            "type": "timeseries",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 6,
+                "w": 14,
+                "h": 9
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  time,\n  temperature_c AS \"Temperature (°C)\"\nFROM weather_data\nWHERE $__timeFilter(time)\nORDER BY time ASC",
+                    "rawEditor": true,
+                    "format": "time_series"
+                },
+                {
+                    "refId": "B",
+                    "queryText": "SELECT\n  time,\n  humidity_pct AS \"Humidity (%)\"\nFROM weather_data\nWHERE $__timeFilter(time)\nORDER BY time ASC",
+                    "rawEditor": true,
+                    "format": "time_series"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Temperature (°C)"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "mode": "fixed",
+                                    "fixedColor": "orange"
+                                }
+                            },
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Humidity (%)"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "mode": "fixed",
+                                    "fixedColor": "blue"
+                                }
+                            },
+                            {
+                                "id": "unit",
+                                "value": "percent"
+                            },
+                            {
+                                "id": "custom.axisPlacement",
+                                "value": "right"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "table",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            }
+        },
+        {
+            "id": 8,
+            "title": "CO₂ Trend",
+            "type": "timeseries",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 14,
+                "y": 6,
+                "w": 10,
+                "h": 9
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  time,\n  air_quality_co2_ppm AS \"CO₂ (ppm)\"\nFROM weather_data\nWHERE $__timeFilter(time)\nORDER BY time ASC",
+                    "rawEditor": true,
+                    "format": "time_series"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "ppm",
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 20,
+                        "showPoints": "never"
+                    },
+                    "color": {
+                        "mode": "fixed",
+                        "fixedColor": "purple"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 800
+                            },
+                            {
+                                "color": "red",
+                                "value": 1200
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            }
+        },
+        {
+            "id": 9,
+            "title": "Gas Sensors Trend",
+            "type": "timeseries",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 15,
+                "w": 12,
+                "h": 9
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  time,\n  flammable_gas_ppm AS \"Flammable Gas (ppm)\"\nFROM weather_data\nWHERE $__timeFilter(time)\nORDER BY time ASC",
+                    "rawEditor": true,
+                    "format": "time_series"
+                },
+                {
+                    "refId": "B",
+                    "queryText": "SELECT\n  time,\n  toxic_gas_ppm AS \"Toxic Gas (ppm)\"\nFROM weather_data\nWHERE $__timeFilter(time)\nORDER BY time ASC",
+                    "rawEditor": true,
+                    "format": "time_series"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "ppm",
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Flammable Gas (ppm)"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "mode": "fixed",
+                                    "fixedColor": "orange"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Toxic Gas (ppm)"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "mode": "fixed",
+                                    "fixedColor": "dark-purple"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "table",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            }
+        },
+        {
+            "id": 10,
+            "title": "UV Index History",
+            "type": "timeseries",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 15,
+                "w": 12,
+                "h": 9
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  time,\n  uv_index AS \"UV Index\"\nFROM weather_data\nWHERE $__timeFilter(time)\nORDER BY time ASC",
+                    "rawEditor": true,
+                    "format": "time_series"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "stepAfter",
+                        "lineWidth": 2,
+                        "fillOpacity": 30,
+                        "showPoints": "auto"
+                    },
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 3
+                            },
+                            {
+                                "color": "orange",
+                                "value": 6
+                            },
+                            {
+                                "color": "red",
+                                "value": 8
+                            },
+                            {
+                                "color": "purple",
+                                "value": 11
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom"
+                },
+                "tooltip": {
+                    "mode": "single"
+                }
+            }
+        },
+        {
+            "id": 11,
+            "title": "Station Location",
+            "type": "geomap",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 24,
+                "w": 16,
+                "h": 12
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  time,\n  gps_latitude,\n  gps_longitude,\n  temperature_c,\n  battery_voltage,\n  gps_satellites\nFROM weather_data\nWHERE $__timeFilter(time)\n  AND gps_latitude IS NOT NULL\n  AND gps_longitude IS NOT NULL\nORDER BY time DESC\nLIMIT 50",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "options": {
+                "view": {
+                    "id": "coords",
+                    "lat": -23.5505,
+                    "lon": -46.6333,
+                    "zoom": 18
+                },
+                "controls": {
+                    "showZoom": true,
+                    "showAttribution": true,
+                    "mouseWheelZoom": true,
+                    "showScale": true
+                },
+                "basemap": {
+                    "type": "default",
+                    "name": "OpenStreetMap"
+                },
+                "layers": [
+                    {
+                        "type": "markers",
+                        "config": {
+                            "size": {
+                                "fixed": 12,
+                                "min": 8,
+                                "max": 20
+                            },
+                            "color": {
+                                "fixed": "dark-red"
+                            },
+                            "fillOpacity": 0.8,
+                            "showLegend": true
+                        },
+                        "location": {
+                            "mode": "coords",
+                            "latitude": "gps_latitude",
+                            "longitude": "gps_longitude"
+                        },
+                        "tooltip": true
+                    }
+                ]
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {
+                        "hideFrom": {
+                            "tooltip": false,
+                            "viz": false,
+                            "legend": false
+                        }
+                    }
+                },
+                "overrides": []
+            }
+        },
+        {
+            "id": 12,
+            "title": "GPS History",
+            "type": "table",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "df6jfde329534b"
+            },
+            "gridPos": {
+                "x": 16,
+                "y": 24,
+                "w": 8,
+                "h": 12
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  time,\n  gps_latitude,\n  gps_longitude,\n  gps_altitude_m,\n  gps_satellites,\n  gps_fix_quality\nFROM weather_data\nWHERE $__timeFilter(time)\nORDER BY time DESC\nLIMIT 20",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {
+                        "align": "auto",
+                        "width": 120
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "time"
+                        },
+                        "properties": [
+                            {
+                                "id": "custom.width",
+                                "value": 180
+                            },
+                            {
+                                "id": "displayName",
+                                "value": "Time"
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "gps_satellites"
+                        },
+                        "properties": [
+                            {
+                                "id": "displayName",
+                                "value": "Sats"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 4
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 7
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "id": "custom.cellOptions",
+                                "value": {
+                                    "type": "color-background"
+                                }
+                            },
+                            {
+                                "id": "custom.width",
+                                "value": 60
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "gps_fix_quality"
+                        },
+                        "properties": [
+                            {
+                                "id": "displayName",
+                                "value": "Fix"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 1
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "id": "custom.cellOptions",
+                                "value": {
+                                    "type": "color-background"
+                                }
+                            },
+                            {
+                                "id": "custom.width",
+                                "value": 50
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "gps_altitude_m"
+                        },
+                        "properties": [
+                            {
+                                "id": "decimals",
+                                "value": 1
+                            },
+                            {
+                                "id": "displayName",
+                                "value": "Alt (m)"
+                            },
+                            {
+                                "id": "custom.width",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "gps_latitude"
+                        },
+                        "properties": [
+                            {
+                                "id": "decimals",
+                                "value": 6
+                            },
+                            {
+                                "id": "displayName",
+                                "value": "Lat"
+                            },
+                            {
+                                "id": "custom.width",
+                                "value": 100
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "gps_longitude"
+                        },
+                        "properties": [
+                            {
+                                "id": "decimals",
+                                "value": 6
+                            },
+                            {
+                                "id": "displayName",
+                                "value": "Lon"
+                            },
+                            {
+                                "id": "custom.width",
+                                "value": 100
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "showHeader": true,
+                "sortBy": [],
+                "footer": {
+                    "show": false,
+                    "reducer": [
+                        "sum"
+                    ],
+                    "fields": ""
+                }
+            }
+        }
+    ]
+}
