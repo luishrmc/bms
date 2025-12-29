@@ -3,35 +3,32 @@
 # Set the name of the final executable target
 set(BMS_EXEC_NAME bms)
 
+# Define the path to the controller source files
+set(CTRL src/controllers)
+
 # Define the main executable and specify its source files
 add_executable(${BMS_EXEC_NAME}
-    src/main.cpp
-    src/influxdb.cpp
-    src/temp.cpp
-    src/voltage.cpp
-    src/modbus_reader.cpp
+    ${CTRL}/main.cpp
+    ${CTRL}/data_logger_ctrl.cpp
+    ${CTRL}/influxdb_ctrl.cpp
 )
 
 # Add include directories needed for this target (e.g., generated config headers)
 target_include_directories(${BMS_EXEC_NAME} PRIVATE
     ${PROJECT_SOURCE_DIR}/config
     ${CMAKE_BINARY_DIR}/app_config
-    ${CMAKE_CURRENT_SOURCE_DIR}/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/inc/controllers
 )
 
 # Link required internal libraries to the executable
 target_link_libraries(${BMS_EXEC_NAME} PRIVATE
-    nlohmann_json::nlohmann_json       
-    PahoMqttCpp::paho-mqttpp3 
-    Boost::system
-    Boost::thread
-    Boost::chrono
-    Threads::Threads
-    libmodbus::modbus
+    data_logger_service_lib
+    influxdb_service_lib
 )
 
 # Define any required compile-time macros for the target
 target_compile_definitions(${BMS_EXEC_NAME} PRIVATE
+    pthread
 )
 
 # --------------------------- OUTPUT DIRECTORY --------------------------- #

@@ -37,4 +37,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # C++ Libraries
     libboost-all-dev \
     nlohmann-json3-dev \
+    libmodbus-dev \
     && rm -rf /var/lib/apt/lists/*

@@ -1047,3 +1047,7 @@ dkms.conf
 
 /build_*
 /.venv/
+/config/grafana/data
+dev.txt
+comp.txt
+config/mosquitto/data

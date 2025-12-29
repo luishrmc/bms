@@ -46,18 +46,6 @@ endif()
 # CMake Package Manager
 include(CPM)
 
-# FMT Library
-CPMAddPackage(
-    NAME fmt
-    GITHUB_REPOSITORY fmtlib/fmt
-    GIT_TAG 11.2.0
-    OPTIONS
-        "FMT_INSTALL OFF"
-        "FMT_TEST OFF"
-        "FMT_DOC OFF"
-        "FMT_OS OFF"
-)
-
 # Paho C++ + bundled Paho C
 CPMAddPackage(
   NAME paho-mqttpp3
@@ -75,28 +63,32 @@ CPMAddPackage(
 )
 
 # Catch2
-if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
-    CPMAddPackage(
-        NAME Catch2
-        GITHUB_REPOSITORY catchorg/Catch2
-        GIT_TAG v3.8.1
-        OPTIONS
-            "CATCH_INSTALL_DOCS OFF"
-    )
-    list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
+# if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+#     CPMAddPackage(
+#         NAME Catch2
+#         GITHUB_REPOSITORY catchorg/Catch2
+#         GIT_TAG v3.8.1
+#         OPTIONS
+#             "CATCH_INSTALL_DOCS OFF"
+#     )
+#     list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
 
-    include(CTest)
-    include(Catch)
-    enable_testing()
-    find_package(Catch2 REQUIRED)
-    add_subdirectory(tests)
-endif()
+#     include(CTest)
+#     include(Catch)
+#     enable_testing()
+#     find_package(Catch2 REQUIRED)
+#     add_subdirectory(tests)
+# endif()
 
 # ------------------------------------ REQUIREMENTS ------------------------------------ #
 find_package(Boost REQUIRED COMPONENTS system thread chrono)
 find_package(Threads REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(PkgConfig REQUIRED)
+
+pkg_check_modules(LIBMODBUS REQUIRED IMPORTED_TARGET libmodbus)
+add_library(libmodbus::modbus INTERFACE IMPORTED)
+target_link_libraries(libmodbus::modbus INTERFACE PkgConfig::LIBMODBUS)
 
 # ------------------------------------ SUBDIRECTORIES ------------------------------------ #
-add_subdirectory(app/src/services)
 add_subdirectory(app)
