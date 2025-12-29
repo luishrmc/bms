@@ -1,4 +1,3 @@
-// inc/batch_structures.hpp
 #pragma once
 
 #include <array>
@@ -72,8 +71,9 @@ namespace bms
     struct VoltageBatch final
     {
         DeviceTimestamp ts{};
-        std::array<float, kChannelCount> voltages{};
+        std::array<float, kChannelCount / 2> voltages{};
         std::uint32_t seq{0};
+        std::uint8_t device_id{0};
         SampleFlags flags{SampleFlags::None};
     };
 
@@ -141,8 +141,8 @@ namespace bms
             batch.ts.subseconds_ms);
         batch.ts.valid = true;
 
-        // Extract 16 voltage channels (registers 3-34)
-        for (std::size_t i = 0; i < kChannelCount; ++i)
+        // Extract 8 voltage channels (registers 3-34)
+        for (std::size_t i = 0; i < kChannelCount / 2; ++i)
         {
             const std::uint16_t hi = regs[3 + 2 * i];
             const std::uint16_t lo = regs[3 + 2 * i + 1];

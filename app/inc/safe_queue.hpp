@@ -1,4 +1,3 @@
-// inc/safe_queue.hpp
 #pragma once
 
 #include <boost/lockfree/queue.hpp>

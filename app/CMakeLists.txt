@@ -7,8 +7,6 @@ set(BMS_EXEC_NAME bms)
 add_executable(${BMS_EXEC_NAME}
     src/main.cpp
     src/influxdb.cpp
-    src/temp.cpp
-    src/voltage.cpp
     src/modbus_reader.cpp
 )
 

@@ -1,4 +1,3 @@
-// inc/modbus_reader.hpp
 #pragma once
 
 #include "batch_structures.hpp"

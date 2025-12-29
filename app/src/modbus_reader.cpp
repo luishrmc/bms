@@ -1,10 +1,10 @@
-// src/modbus_reader.cpp
 #include "modbus_reader.hpp"
 
 #include <modbus/modbus.h>
 
 #include <cerrno>
 #include <cstring>
+#include <iostream>
 
 namespace bms
 {
@@ -134,7 +134,8 @@ namespace bms
             }
 
             modbus_t *ctx = as_modbus(ctx_);
-            const int rc = modbus_read_registers(ctx, addr, count, dest);
+            // const int rc = modbus_read_registers(ctx, addr, count, dest);
+            const int rc = modbus_read_input_registers(ctx, addr, count, dest);
 
             if (rc == count)
             {
