@@ -94,7 +94,8 @@ namespace bms
         std::uint16_t subseconds_ms) noexcept
     {
         const auto base = std::chrono::system_clock::from_time_t(kUnixEpoch2000);
-        return base + std::chrono::seconds(device_epoch_seconds) + std::chrono::milliseconds(subseconds_ms);
+        // return base + std::chrono::seconds(device_epoch_seconds) + std::chrono::milliseconds(subseconds_ms);
+        return std::chrono::system_clock::now();
     }
 
     inline std::int64_t to_influxdb_ns(std::chrono::system_clock::time_point tp) noexcept

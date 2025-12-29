@@ -38,6 +38,34 @@ void print_batch_summary(const bms::VoltageBatch *batch)
     std::cout << std::endl;
 }
 
+// Alternative: Show both UTC and device epoch
+std::string format_device_timestamp_detailed(const bms::DeviceTimestamp &ts)
+{
+    // if (!ts.valid)
+    // {
+    //     return "INVALID";
+    // }
+
+    auto time_t_val = std::chrono::system_clock::to_time_t(ts.timestamp);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  ts.timestamp.time_since_epoch()) %
+              1000;
+
+    std::tm tm_buf;
+    gmtime_r(&time_t_val, &tm_buf);
+
+    char buffer[32];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S", &tm_buf);
+
+    std::ostringstream oss;
+    oss << buffer
+        << "." << std::setfill('0') << std::setw(3) << ms.count()
+        << "Z"
+        << " (device: " << ts.device_epoch << "s + " << ts.subseconds_ms << "ms)";
+
+    return oss.str();
+}
+
 // Helper: Print voltage statistics
 void print_voltage_stats(const bms::VoltageBatch *batch)
 {
@@ -46,6 +74,8 @@ void print_voltage_stats(const bms::VoltageBatch *batch)
         std::cout << "  [Error] Communication failure - no data" << std::endl;
         return;
     }
+
+    std::cout << "  Timestamp: " << format_device_timestamp_detailed(batch->ts) << std::endl;
 
     float min_v = batch->voltages[0];
     float max_v = batch->voltages[0];
@@ -72,9 +102,8 @@ void print_voltage_stats(const bms::VoltageBatch *batch)
                   << "V, Avg=" << (sum_v / valid_count)
                   << "V, Pack=" << sum_v << "V" << std::endl;
 
-        // Show first 4 cells for detail
-        std::cout << "  First 4: ";
-        for (size_t i = 0; i < 4 && i < batch->voltages.size(); ++i)
+        std::cout << "  Voltage: ";
+        for (size_t i = 0; i < 8 && i < batch->voltages.size(); ++i)
         {
             std::cout << "C" << i << "=" << batch->voltages[i] << "V ";
         }

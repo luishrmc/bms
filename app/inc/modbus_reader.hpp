@@ -59,7 +59,7 @@ namespace bms
         void disconnect();
         bool is_connected() const noexcept;
 
-        bool read_holding_registers(int addr, int count, std::uint16_t *dest);
+        bool read_input_registers(int addr, int count, std::uint16_t *dest);
 
         /**
          * Read BMS register block (3-37) in single transaction.

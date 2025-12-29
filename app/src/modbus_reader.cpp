@@ -112,7 +112,7 @@ namespace bms
         return connect();
     }
 
-    bool ModbusTcpClient::read_holding_registers(
+    bool ModbusTcpClient::read_input_registers(
         int addr,
         int count,
         std::uint16_t *dest)
@@ -120,7 +120,7 @@ namespace bms
         if (!dest || count <= 0)
         {
             errno = EINVAL;
-            update_error_("read_holding_registers invalid args");
+            update_error_("read_input_registers invalid args");
             status_.read_failures++;
             return false;
         }
@@ -158,7 +158,7 @@ namespace bms
         std::array<std::uint16_t, kRegisterBlockCount> &out_regs)
     {
         // Cast kRegisterBlockCount to int for libmodbus API
-        return read_holding_registers(
+        return read_input_registers(
             kModbusStartAddr,
             static_cast<int>(kRegisterBlockCount),
             out_regs.data());

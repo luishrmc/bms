@@ -147,10 +147,10 @@ namespace bms
             SampleFlags flags = client.read_voltage_batch(*batch);
 
             // Optional validation (range, timestamp, decode sanity)
-            // if (cfg_.enable_validation)
-            // {
-            //     flags = flags | validate_voltage_batch(*batch);
-            // }
+            if (cfg_.enable_validation)
+            {
+                flags = flags | validate_voltage_batch(*batch);
+            }
 
             // Handle read or validation failure
             if (any(flags))

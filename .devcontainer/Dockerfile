@@ -9,6 +9,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV PIP_NO_CACHE_DIR=1
 # Ensure the path for local pip packages is included
 ENV PATH="/home/bms/.local/bin:${PATH}" 
+ENV TZ=America/Sao_Paulo
 
 # --- Stage 1: Install Core Utilities and Bash ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -39,3 +40,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nlohmann-json3-dev \
     libmodbus-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# --- Stage 4: Set Timezone ---
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
