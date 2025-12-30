@@ -307,15 +307,15 @@ int main()
         std::cout << "\n[Main] Creating periodic tasks..." << std::endl;
 
         bms::PeriodicTask voltage_task(
-            boost::chrono::milliseconds(1000), // 1 Hz
+            boost::chrono::milliseconds(100), // 10 Hz
             std::ref(voltage_producer));
 
         bms::PeriodicTask temperature_task(
-            boost::chrono::milliseconds(2000), // 0.5 Hz
+            boost::chrono::milliseconds(1000), // 1 Hz
             std::ref(temperature_producer));
 
         bms::PeriodicTask influxdb_task(
-            boost::chrono::milliseconds(100), // 10 Hz (flush frequently)
+            boost::chrono::milliseconds(50), // 20 Hz
             std::ref(influx_task));
 
         // ========================================================================
