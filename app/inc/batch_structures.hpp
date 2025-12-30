@@ -171,6 +171,7 @@ namespace bms
             const std::uint16_t hi = regs[3 + 2 * i];
             const std::uint16_t lo = regs[3 + 2 * i + 1];
             batch.temperatures[i] = modbus_registers_to_float(hi, lo);
+            batch.temperatures[i] = batch.temperatures[i] < 0 ? 0.0f : batch.temperatures[i];
         }
     }
 
