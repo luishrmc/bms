@@ -14,7 +14,7 @@ ENV TZ=America/Sao_Paulo
 # --- Stage 1: Install Core Utilities and Bash ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
-    sudo ca-certificates tzdata curl lsb-release wget git openssh-client pkg-config unzip zip locales
+    sudo ca-certificates jq tzdata curl lsb-release wget git openssh-client pkg-config unzip zip locales
 
 # --- Stage 2: Create the 'bms' user ---
 ARG USERNAME=bms
