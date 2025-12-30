@@ -1047,7 +1047,8 @@ dkms.conf
 
 /build_*
 /.venv/
-/config/grafana/data
+config/grafana/data
 dev.txt
 comp.txt
 config/mosquitto/data
+config/influxdb3/core/data

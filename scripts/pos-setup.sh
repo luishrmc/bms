@@ -37,12 +37,19 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
 echo -e "\nStep 2: Initializing table schemas..."
 
 # Build wide fieldsets (comma-separated fields)
-V_FIELDS=""
-for i in $(seq 0 14); do
-  V_FIELDS+="cell${i}=0.0,"
+DL_1_FIELDS=""
+for i in $(seq 0 7); do
+  DL_1_FIELDS+="ch${i}=0.0,"
 done
-V_FIELDS="${V_FIELDS%,}"   # trim trailing comma
-V_DATA="voltage ${V_FIELDS}"
+DL_1_FIELDS="${DL_1_FIELDS%,}"   # trim trailing comma
+DL_1_DATA="voltage1 ${DL_1_FIELDS}"
+
+DL_2_FIELDS=""
+for i in $(seq 8 15); do
+  DL_2_FIELDS+="ch${i}=0.0,"
+done
+DL_2_FIELDS="${DL_2_FIELDS%,}"
+DL_2_DATA="voltage2 ${DL_2_FIELDS}"
 
 T_FIELDS=""
 for i in $(seq 0 15); do
@@ -51,9 +58,7 @@ done
 T_FIELDS="${T_FIELDS%,}"
 T_DATA="temperature ${T_FIELDS}"
 
-C_DATA="current current=0.0"
-
-for DATA in "$V_DATA" "$T_DATA" "$C_DATA"; do
+for DATA in "$DL_1_DATA" "$DL_2_DATA" "$T_DATA"; do
     TABLE=$(echo "$DATA" | awk '{print $1}')
     echo -n "Configuring $TABLE... "
 

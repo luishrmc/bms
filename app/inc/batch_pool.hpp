@@ -8,13 +8,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <new>
+#include <functional>
 
 namespace bms
 {
 
     /**
-     * BatchPool<T> - Lock-free object pool for batch allocation
+     * BatchPool - Lock-free object pool for batch allocation
      *
      * Thread-safe pool using boost::lockfree::stack for wait-free acquire/release.
      * Preallocates objects to eliminate runtime allocation overhead.
@@ -27,11 +27,11 @@ namespace bms
      * - SafeQueue disposer integration
      *
      * Shutdown sequence (required for safety):
-     *   1. Stop producer threads (PeriodicTask::stop())
-     *   2. Close queues (SafeQueue::close())
-     *   3. Join threads (PeriodicTask::join())
-     *   4. Drain consumer queue (process remaining batches)
-     *   5. Destroy pool (BatchPool destructor)
+     * 1. Stop producer threads (PeriodicTask::stop())
+     * 2. Close queues (SafeQueue::close())
+     * 3. Join threads (PeriodicTask::join())
+     * 4. Drain consumer queue (process remaining batches)
+     * 5. Destroy pool (BatchPool destructor)
      *
      * This ensures no objects are checked out when pool is destroyed.
      */
@@ -42,7 +42,11 @@ namespace bms
         using value_type = T;
         using pointer = T *;
 
-        struct Deleter
+        // Deleter for SafeQueue integration (std::function wrapper)
+        using Deleter = std::function<void(pointer)>;
+
+        // Deleter struct for unique_ptr (RAII handles)
+        struct UniquePtrDeleter
         {
             BatchPool *pool{nullptr};
 
@@ -55,7 +59,7 @@ namespace bms
             }
         };
 
-        using unique_ptr = std::unique_ptr<T, Deleter>;
+        using unique_ptr = std::unique_ptr<T, UniquePtrDeleter>;
 
         /**
          * Construct pool with preallocated capacity.
@@ -82,7 +86,6 @@ namespace bms
             for (std::size_t i = 0; i < capacity_; ++i)
             {
                 pointer obj = new (std::nothrow) T();
-
                 if (!obj)
                 {
                     // Continue with reduced capacity
@@ -113,7 +116,6 @@ namespace bms
         ~BatchPool() noexcept
         {
             // Safe shutdown: only delete objects not checked out
-
             // Drain free stack
             pointer p = nullptr;
             while (free_.pop(p))
@@ -123,7 +125,6 @@ namespace bms
 
             // Delete owned objects only if none are in use
             const auto in_use = in_use_count();
-
             if (in_use == 0)
             {
                 // Safe to delete all preallocated objects
@@ -192,7 +193,7 @@ namespace bms
          */
         unique_ptr acquire_unique() noexcept
         {
-            return unique_ptr(acquire(), Deleter{this});
+            return unique_ptr(acquire(), UniquePtrDeleter{this});
         }
 
         /**
@@ -234,12 +235,15 @@ namespace bms
         /**
          * Create disposer functor for SafeQueue integration.
          *
+         * Returns a std::function that matches the Deleter type alias.
+         * This ensures type compatibility across translation units.
+         *
          * Usage:
          *   BatchPool<VoltageBatch> pool(256);
-         *   SafeQueue<VoltageBatch, decltype(pool.disposer())>
+         *   SafeQueue<VoltageBatch, BatchPool<VoltageBatch>::Deleter>
          *       queue(128, pool.disposer());
          */
-        auto disposer() noexcept
+        Deleter disposer() noexcept
         {
             return [this](pointer obj) noexcept
             {

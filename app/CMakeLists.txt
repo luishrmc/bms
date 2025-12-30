@@ -26,6 +26,7 @@ target_link_libraries(${BMS_EXEC_NAME} PRIVATE
     Boost::chrono
     Threads::Threads
     libmodbus::modbus
+    curl
 )
 
 # Define any required compile-time macros for the target

@@ -1,20 +1,27 @@
 // src/main.cpp
-// BMS Voltage Monitoring Test - Fixed for Lambda Disposer
+// BMS Data Logger - InfluxDB Integration Test
 
 #include "periodic_task.hpp"
 #include "voltage.hpp"
+#include "temp.hpp"
+#include "influxdb.hpp"
 #include "safe_queue.hpp"
 #include "batch_pool.hpp"
 #include "batch_structures.hpp"
 
+#include <boost/atomic.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/chrono.hpp>
+
 #include <iostream>
 #include <iomanip>
 #include <csignal>
-#include <boost/atomic.hpp>
-#include <boost/thread.hpp>
-#include <boost/chrono.hpp>
+#include <sstream>
 
-// Atomic flag for graceful shutdown via signal handling
+// ========================================================================
+// Global Shutdown Flag
+// ========================================================================
+
 boost::atomic<bool> g_running{true};
 
 void signal_handler(int)
@@ -23,29 +30,12 @@ void signal_handler(int)
     g_running = false;
 }
 
-// Helper: Print batch details
-void print_batch_summary(const bms::VoltageBatch *batch)
+// ========================================================================
+// Helper Functions
+// ========================================================================
+
+std::string format_timestamp(const bms::DeviceTimestamp &ts)
 {
-    std::cout << "[Consumer] Batch | Device: " << static_cast<int>(batch->device_id)
-              << " | Seq: " << batch->seq
-              << " | TS Valid: " << (batch->ts.valid ? "Yes" : "No");
-
-    if (bms::any(batch->flags))
-    {
-        std::cout << " | Flags: 0x" << std::hex
-                  << static_cast<std::uint32_t>(batch->flags) << std::dec;
-    }
-    std::cout << std::endl;
-}
-
-// Alternative: Show both UTC and device epoch
-std::string format_device_timestamp_detailed(const bms::DeviceTimestamp &ts)
-{
-    // if (!ts.valid)
-    // {
-    //     return "INVALID";
-    // }
-
     auto time_t_val = std::chrono::system_clock::to_time_t(ts.timestamp);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                   ts.timestamp.time_since_epoch()) %
@@ -58,58 +48,38 @@ std::string format_device_timestamp_detailed(const bms::DeviceTimestamp &ts)
     std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S", &tm_buf);
 
     std::ostringstream oss;
-    oss << buffer
-        << "." << std::setfill('0') << std::setw(3) << ms.count()
-        << "Z"
-        << " (device: " << ts.device_epoch << "s + " << ts.subseconds_ms << "ms)";
-
+    oss << buffer << "." << std::setfill('0') << std::setw(3) << ms.count() << "Z";
     return oss.str();
 }
 
-// Helper: Print voltage statistics
-void print_voltage_stats(const bms::VoltageBatch *batch)
+void print_voltage_sample(const bms::VoltageBatch *batch)
 {
-    if (bms::any(batch->flags & bms::SampleFlags::CommError))
+    std::cout << "[Voltage] Device " << static_cast<int>(batch->device_id)
+              << " | Seq " << batch->seq
+              << " | " << format_timestamp(batch->ts);
+
+    if (bms::any(batch->flags))
     {
-        std::cout << "  [Error] Communication failure - no data" << std::endl;
-        return;
+        std::cout << " | Flags: 0x" << std::hex
+                  << static_cast<int>(batch->flags) << std::dec;
     }
 
-    std::cout << "  Timestamp: " << format_device_timestamp_detailed(batch->ts) << std::endl;
-
-    float min_v = batch->voltages[0];
-    float max_v = batch->voltages[0];
-    float sum_v = 0.0f;
-    int valid_count = 0;
-
-    for (float v : batch->voltages)
+    if (!bms::any(batch->flags & bms::SampleFlags::CommError))
     {
-        if (std::isfinite(v))
-        {
-            if (v < min_v)
-                min_v = v;
-            if (v > max_v)
-                max_v = v;
-            sum_v += v;
-            valid_count++;
-        }
-    }
-
-    if (valid_count > 0)
-    {
-        std::cout << std::fixed << std::setprecision(4);
-        std::cout << "  Voltages: Min=" << min_v << "V, Max=" << max_v
-                  << "V, Avg=" << (sum_v / valid_count)
-                  << "V, Pack=" << sum_v << "V" << std::endl;
-
-        std::cout << "  Voltage: ";
+        std::cout << " | V: ";
         for (size_t i = 0; i < 8 && i < batch->voltages.size(); ++i)
         {
-            std::cout << "C" << i << "=" << batch->voltages[i] << "V ";
+            std::cout << std::fixed << std::setprecision(3)
+                      << batch->voltages[i] << "V ";
         }
-        std::cout << std::endl;
     }
+
+    std::cout << std::endl;
 }
+
+// ========================================================================
+// Main
+// ========================================================================
 
 int main()
 {
@@ -118,33 +88,44 @@ int main()
     std::signal(SIGTERM, signal_handler);
 
     std::cout << "========================================" << std::endl;
-    std::cout << " BMS Voltage Monitoring Test" << std::endl;
+    std::cout << "  BMS Data Logger - InfluxDB Test" << std::endl;
     std::cout << "========================================" << std::endl;
 
     // ========================================================================
-    // 2. Instantiate Shared Resources
+    // 2. Create Batch Pools
     // ========================================================================
 
-    std::cout << "[Main] Creating batch pool (capacity: 128)..." << std::endl;
+    std::cout << "\n[Main] Creating batch pools..." << std::endl;
     bms::VoltageBatchPool voltage_pool(128);
-    std::cout << "  Preallocated: " << voltage_pool.preallocated() << " batches" << std::endl;
-
-    // Create queue with pool's disposer (explicit template parameter required!)
-    std::cout << "[Main] Creating safe queue (capacity: 64)..." << std::endl;
-
-    // Define queue type with explicit Disposer template parameter
-    using VoltageQueueType = bms::SafeQueue<
-        bms::VoltageBatch,
-        decltype(voltage_pool.disposer()) // Lambda type from pool
-        >;
-
-    VoltageQueueType voltage_queue(64, voltage_pool.disposer());
+    bms::TemperatureBatchPool temperature_pool(128);
 
     // ========================================================================
-    // 3. Configure Acquisition Module
+    // 3. Create Queues
     // ========================================================================
 
-    std::cout << "[Main] Configuring voltage acquisition..." << std::endl;
+    std::cout << "[Main] Creating queues..." << std::endl;
+
+    // Use InfluxDBTask's type aliases
+    using VoltageQueue = bms::InfluxDBTask::VoltageQueue;
+    using TemperatureQueue = bms::InfluxDBTask::TemperatureQueue;
+
+    // Explicitly cast lambda to Deleter type
+    VoltageQueue voltage_queue(
+        64,
+        bms::VoltageBatchPool::Deleter(voltage_pool.disposer()));
+
+    TemperatureQueue temperature_queue(
+        64,
+        bms::TemperatureBatchPool::Deleter(temperature_pool.disposer()));
+
+    std::cout << "  Voltage queue capacity: 64" << std::endl;
+    std::cout << "  Temperature queue capacity: 64" << std::endl;
+
+    // ========================================================================
+    // 4. Configure Voltage Acquisition
+    // ========================================================================
+
+    std::cout << "\n[Main] Configuring voltage acquisition..." << std::endl;
     bms::VoltageAcquisitionConfig v_cfg;
 
     // Device 1
@@ -163,187 +144,279 @@ int main()
     v_cfg.device2.connect_retries = 3;
     v_cfg.device2.read_retries = 2;
 
-    // Policies
-    v_cfg.push_failed_reads = true; // Push failed reads for observability
-    v_cfg.enable_validation = true; // Physical sanity checks
+    v_cfg.push_failed_reads = true;
+    v_cfg.enable_validation = true;
 
     std::cout << "  Device 1: " << v_cfg.device1.host << ":" << v_cfg.device1.port << std::endl;
     std::cout << "  Device 2: " << v_cfg.device2.host << ":" << v_cfg.device2.port << std::endl;
 
     // ========================================================================
-    // 4. Instantiate Voltage Acquisition
+    // 6. Configure InfluxDB
     // ========================================================================
 
-    std::cout << "[Main] Creating voltage acquisition instance..." << std::endl;
-    bms::VoltageAcquisition<VoltageQueueType> voltage_producer(
-        v_cfg,
-        voltage_pool,
-        voltage_queue);
+    std::cout << "\n[Main] Configuring InfluxDB..." << std::endl;
+    bms::InfluxDBConfig db_cfg;
 
-    // Initial connection attempt
-    std::cout << "[Main] Connecting to MODBUS devices..." << std::endl;
-    if (!voltage_producer.connect())
+    db_cfg.base_url = "http://influxdb3:8181";
+    db_cfg.database = "battery_data";
+    db_cfg.token = "apiv3_r3bPKTc1j1vBIf-E6gvDeO_Mn6tAYaSjHyGTyZ-oMNChOva0PZwWXVSFDiRyyYtQ8kCPVxqrKPhn7vE-9mWJ2Q";
+
+    db_cfg.voltage1_table = "voltage1";
+    db_cfg.voltage2_table = "voltage2";
+    db_cfg.temperature_table = "temperature";
+
+    db_cfg.connect_timeout = boost::chrono::milliseconds(1500);
+    db_cfg.request_timeout = boost::chrono::milliseconds(5000);
+
+    db_cfg.max_lines_per_post = 2048;
+    db_cfg.max_bytes_per_post = 512 * 1024;
+
+    db_cfg.max_retries = 3;
+    db_cfg.retry_delay = boost::chrono::milliseconds(100);
+
+    db_cfg.include_invalid_samples = false; // Drop flagged samples
+
+    db_cfg.voltage_precision = 6;
+    db_cfg.temperature_precision = 3;
+
+    std::cout << "  URL: " << db_cfg.base_url << std::endl;
+    std::cout << "  Database: " << db_cfg.database << std::endl;
+    std::cout << "  Tables: " << db_cfg.voltage1_table << ", "
+              << db_cfg.voltage2_table << ", " << db_cfg.temperature_table << std::endl;
+
+    // ========================================================================
+    // 7. Create Acquisition Instances
+    // ========================================================================
+
+    std::cout << "\n[Main] Creating acquisition instances..." << std::endl;
+
+    bms::VoltageAcquisition voltage_producer(v_cfg, voltage_pool, voltage_queue);
+
+    // ========================================================================
+    // 8. Create InfluxDB Client and Task
+    // ========================================================================
+
+    std::cout << "[Main] Creating InfluxDB client..." << std::endl;
+
+    try
     {
-        std::cerr << "  Warning: Initial connection failed. Will retry during reads." << std::endl;
-        std::cerr << "  Device 1: " << voltage_producer.device1_status().last_error << std::endl;
-        std::cerr << "  Device 2: " << voltage_producer.device2_status().last_error << std::endl;
-    }
-    else
-    {
-        std::cout << "  ✓ Both devices connected successfully" << std::endl;
-    }
+        bms::InfluxHTTPClient influx_client(db_cfg);
 
-    // ========================================================================
-    // 5. Create Producer Task (Sampling at 1.0 Hz)
-    // ========================================================================
-
-    std::cout << "[Main] Creating producer task (period: 1000ms)..." << std::endl;
-    bms::PeriodicTask voltage_task(
-        boost::chrono::milliseconds(1000),
-        std::ref(voltage_producer) // std::ref to avoid copying non-copyable object
-    );
-
-    // ========================================================================
-    // 6. Create Consumer Task (Processing at 2 Hz)
-    // ========================================================================
-
-    std::cout << "[Main] Creating consumer task (period: 500ms)..." << std::endl;
-
-    std::uint64_t consumer_processed = 0;
-    std::uint64_t consumer_errors = 0;
-
-    auto consumer_work = [&]()
-    {
-        bms::VoltageBatch *batch = nullptr;
-
-        // Drain all pending samples from queue (non-blocking)
-        while (voltage_queue.try_pop(batch))
+        std::cout << "[Main] Testing InfluxDB connectivity..." << std::endl;
+        if (!influx_client.ping())
         {
-            consumer_processed++;
-
-            print_batch_summary(batch);
-
-            if (bms::any(batch->flags))
-            {
-                consumer_errors++;
-            }
-
-            if (batch->ts.valid && !bms::any(batch->flags))
-            {
-                print_voltage_stats(batch);
-            }
-
-            // Return batch to pool via queue disposer
-            voltage_queue.dispose(batch);
+            std::cerr << "  WARNING: Cannot connect to InfluxDB at " << db_cfg.base_url << std::endl;
+            std::cerr << "  Will continue, but writes will fail." << std::endl;
         }
-    };
-
-    bms::PeriodicTask consumer_task(
-        boost::chrono::milliseconds(500), // Runs 2x faster than producer
-        consumer_work);
-
-    // ========================================================================
-    // 7. Start Execution
-    // ========================================================================
-
-    std::cout << "\n========================================" << std::endl;
-    std::cout << " Starting Tasks - Press Ctrl+C to stop" << std::endl;
-    std::cout << "========================================\n"
-              << std::endl;
-
-    voltage_task.start();
-    consumer_task.start();
-
-    // ========================================================================
-    // 8. Main Loop with Periodic Diagnostics
-    // ========================================================================
-
-    int counter = 0;
-    while (g_running)
-    {
-        boost::this_thread::sleep_for(boost::chrono::milliseconds(500));
-
-        // Print diagnostics every 10 seconds
-        if (++counter % 20 == 0)
+        else
         {
-            std::cout << "\n[Main] === Diagnostics ===" << std::endl;
-            std::cout << "  Producer:" << std::endl;
-            std::cout << "    Published: " << voltage_producer.total_published() << std::endl;
-            std::cout << "    Dropped:   " << voltage_producer.total_dropped() << std::endl;
-            std::cout << "  Consumer:" << std::endl;
-            std::cout << "    Processed: " << consumer_processed << std::endl;
-            std::cout << "    Errors:    " << consumer_errors << std::endl;
-            std::cout << "  Queue:" << std::endl;
-            std::cout << "    Size:      " << voltage_queue.approximate_size() << std::endl;
-            std::cout << "    Dropped:   " << voltage_queue.dropped_count() << std::endl;
-            std::cout << "  Pool:" << std::endl;
-            std::cout << "    In use:    " << voltage_pool.in_use_count() << std::endl;
-            std::cout << "    In pool:   " << voltage_pool.in_pool() << std::endl;
-            std::cout << "  Device 1:" << std::endl;
-            std::cout << "    Reads:     " << voltage_producer.device1_status().successful_reads << std::endl;
-            std::cout << "    Failures:  " << voltage_producer.device1_status().read_failures << std::endl;
-            std::cout << "  Device 2:" << std::endl;
-            std::cout << "    Reads:     " << voltage_producer.device2_status().successful_reads << std::endl;
-            std::cout << "    Failures:  " << voltage_producer.device2_status().read_failures << std::endl;
+            std::cout << "  ✓ Connected to InfluxDB" << std::endl;
         }
+
+        std::cout << "[Main] Creating InfluxDB task..." << std::endl;
+        bms::InfluxDBTask influx_task(
+            db_cfg,
+            influx_client,
+            voltage_pool,
+            temperature_pool,
+            voltage_queue,
+            temperature_queue);
+
+        // ========================================================================
+        // 9. Connect MODBUS Devices
+        // ========================================================================
+
+        std::cout << "\n[Main] Connecting to MODBUS devices..." << std::endl;
+
+        bool v_connected = voltage_producer.connect();
+
+        if (!v_connected)
+        {
+            std::cerr << "  WARNING: Voltage devices connection failed" << std::endl;
+            std::cerr << "    Device 1: " << voltage_producer.device1_status().last_error << std::endl;
+            std::cerr << "    Device 2: " << voltage_producer.device2_status().last_error << std::endl;
+        }
+        else
+        {
+            std::cout << "  ✓ Voltage devices connected" << std::endl;
+        }
+
+        // ========================================================================
+        // 10. Create Periodic Tasks
+        // ========================================================================
+
+        std::cout << "\n[Main] Creating periodic tasks..." << std::endl;
+
+        bms::PeriodicTask voltage_task(
+            boost::chrono::milliseconds(1000), // 1 Hz
+            std::ref(voltage_producer));
+
+        bms::PeriodicTask influxdb_task(
+            boost::chrono::milliseconds(100), // 10 Hz (flush frequently)
+            std::ref(influx_task));
+
+        // ========================================================================
+        // 11. Optional: Console Monitor (samples every 5s for visibility)
+        // ========================================================================
+
+        std::cout << "[Main] Creating console monitor..." << std::endl;
+
+        boost::atomic<std::uint64_t> monitor_voltage{0};
+        boost::atomic<std::uint64_t> monitor_temperature{0};
+
+        auto monitor_work = [&]()
+        {
+            // Peek at queue samples without consuming them (InfluxDB task consumes)
+            // Just for visibility - show last sample every 5 seconds
+
+            // Note: In production, remove this or use separate logging queue
+            // For now, we'll just show diagnostics
+        };
+
+        bms::PeriodicTask monitor_task(
+            boost::chrono::milliseconds(5000), // Every 5s
+            monitor_work);
+
+        // ========================================================================
+        // 12. Start All Tasks
+        // ========================================================================
+
+        std::cout << "\n========================================" << std::endl;
+        std::cout << "  Starting Data Logger" << std::endl;
+        std::cout << "  Press Ctrl+C to stop" << std::endl;
+        std::cout << "========================================\n"
+                  << std::endl;
+
+        voltage_task.start();
+        influxdb_task.start();
+        monitor_task.start();
+
+        // ========================================================================
+        // 13. Main Loop with Diagnostics
+        // ========================================================================
+
+        int counter = 0;
+        while (g_running)
+        {
+            boost::this_thread::sleep_for(boost::chrono::milliseconds(1000));
+
+            // Print diagnostics every 10 seconds
+            if (++counter % 10 == 0)
+            {
+                std::cout << "\n=== Diagnostics (t=" << counter << "s) ===" << std::endl;
+
+                std::cout << "\nVoltage Acquisition:" << std::endl;
+                std::cout << "  Published: " << voltage_producer.total_published() << std::endl;
+                std::cout << "  Dropped: " << voltage_producer.total_dropped() << std::endl;
+                std::cout << "  Device 1 reads: " << voltage_producer.device1_status().successful_reads
+                          << " (failures: " << voltage_producer.device1_status().read_failures << ")" << std::endl;
+                std::cout << "  Device 2 reads: " << voltage_producer.device2_status().successful_reads
+                          << " (failures: " << voltage_producer.device2_status().read_failures << ")" << std::endl;
+
+                std::cout << "\nInfluxDB Writer:" << std::endl;
+                std::cout << "  HTTP posts: " << influx_task.total_posts()
+                          << " (failures: " << influx_task.total_post_failures() << ")" << std::endl;
+                std::cout << "  Voltage samples written: " << influx_task.total_voltage_samples() << std::endl;
+                std::cout << "  Temperature samples written: " << influx_task.total_temperature_samples() << std::endl;
+                std::cout << "  Dropped (flagged): " << influx_task.dropped_flagged_samples() << std::endl;
+
+                if (!influx_task.last_error().empty())
+                {
+                    std::cout << "  Last error: " << influx_task.last_error() << std::endl;
+                }
+
+                std::cout << "\nQueues:" << std::endl;
+                std::cout << "  Voltage queue size: " << voltage_queue.approximate_size()
+                          << " (dropped: " << voltage_queue.dropped_count() << ")" << std::endl;
+                std::cout << "  Temperature queue size: " << temperature_queue.approximate_size()
+                          << " (dropped: " << temperature_queue.dropped_count() << ")" << std::endl;
+
+                std::cout << "\nMemory Pools:" << std::endl;
+                std::cout << "  Voltage in use: " << voltage_pool.in_use_count()
+                          << "/" << voltage_pool.preallocated() << std::endl;
+                std::cout << "  Temperature in use: " << temperature_pool.in_use_count()
+                          << "/" << temperature_pool.preallocated() << std::endl;
+
+                std::cout << "\nHTTP Client Stats:" << std::endl;
+                std::cout << "  Total HTTP posts: " << influx_client.total_posts() << std::endl;
+                std::cout << "  HTTP failures: " << influx_client.total_failures() << std::endl;
+                std::cout << "  HTTP retries: " << influx_client.total_retries() << std::endl;
+                std::cout << "  Last HTTP code: " << influx_client.last_http_code() << std::endl;
+
+                std::cout << std::endl;
+            }
+        }
+
+        // ========================================================================
+        // 14. Shutdown Sequence
+        // ========================================================================
+
+        std::cout << "\n[Main] Initiating shutdown sequence..." << std::endl;
+
+        std::cout << "[Main] Stopping periodic tasks..." << std::endl;
+        voltage_task.stop();
+        influxdb_task.stop();
+        monitor_task.stop();
+
+        std::cout << "[Main] Joining threads..." << std::endl;
+        voltage_task.join();
+        influxdb_task.join();
+        monitor_task.join();
+        std::cout << "  ✓ All threads stopped" << std::endl;
+
+        std::cout << "[Main] Closing queues..." << std::endl;
+        voltage_queue.close();
+        temperature_queue.close();
+
+        std::cout << "[Main] Disconnecting MODBUS devices..." << std::endl;
+        voltage_producer.disconnect();
+        std::cout << "  ✓ Devices disconnected" << std::endl;
+
+        // ========================================================================
+        // 15. Final Statistics
+        // ========================================================================
+
+        std::cout << "\n========================================" << std::endl;
+        std::cout << "  Final Statistics" << std::endl;
+        std::cout << "========================================" << std::endl;
+
+        std::cout << "\nVoltage Acquisition:" << std::endl;
+        std::cout << "  Total published: " << voltage_producer.total_published() << std::endl;
+        std::cout << "  Total dropped: " << voltage_producer.total_dropped() << std::endl;
+
+        std::cout << "\nInfluxDB Writer:" << std::endl;
+        std::cout << "  HTTP posts: " << influx_task.total_posts() << std::endl;
+        std::cout << "  HTTP failures: " << influx_task.total_post_failures() << std::endl;
+        std::cout << "  Voltage samples: " << influx_task.total_voltage_samples() << std::endl;
+        std::cout << "  Temperature samples: " << influx_task.total_temperature_samples() << std::endl;
+        std::cout << "  Dropped (flagged): " << influx_task.dropped_flagged_samples() << std::endl;
+
+        std::cout << "\nHTTP Client:" << std::endl;
+        std::cout << "  Total posts: " << influx_client.total_posts() << std::endl;
+        std::cout << "  Failures: " << influx_client.total_failures() << std::endl;
+        std::cout << "  Retries: " << influx_client.total_retries() << std::endl;
+
+        std::cout << "\nQueues:" << std::endl;
+        std::cout << "  Voltage: pushed=" << voltage_queue.total_pushed()
+                  << ", popped=" << voltage_queue.total_popped()
+                  << ", dropped=" << voltage_queue.dropped_count() << std::endl;
+
+        std::cout << "\nMemory Pools:" << std::endl;
+        std::cout << "  Voltage: acquired=" << voltage_pool.total_acquired()
+                  << ", released=" << voltage_pool.total_released()
+                  << ", leaked=" << voltage_pool.leaked_on_shutdown() << std::endl;
+
+        if (voltage_pool.leaked_on_shutdown() > 0 || temperature_pool.leaked_on_shutdown() > 0)
+        {
+            std::cerr << "\nWARNING: Memory leaks detected!" << std::endl;
+        }
+
+        std::cout << "\n[Main] Clean exit completed." << std::endl;
+        return 0;
     }
-
-    // ========================================================================
-    // 9. Shutdown Sequence (Ordered to prevent memory corruption)
-    // ========================================================================
-
-    std::cout << "\n[Main] Initiating shutdown sequence..." << std::endl;
-
-    // Step 1: Stop periodic tasks
-    std::cout << "[Main] Stopping periodic tasks..." << std::endl;
-    voltage_task.stop();
-    consumer_task.stop();
-
-    // Step 2: Wait for threads to complete
-    std::cout << "[Main] Joining threads..." << std::endl;
-    voltage_task.join();
-    consumer_task.join();
-    std::cout << "  ✓ All threads stopped" << std::endl;
-
-    // Step 3: Close queue (no more pushes)
-    std::cout << "[Main] Closing queue..." << std::endl;
-    voltage_queue.close();
-
-    // Step 4: Disconnect devices
-    std::cout << "[Main] Disconnecting MODBUS devices..." << std::endl;
-    voltage_producer.disconnect();
-    std::cout << "  ✓ Devices disconnected" << std::endl;
-
-    // ========================================================================
-    // 10. Final Statistics
-    // ========================================================================
-
-    std::cout << "\n========================================" << std::endl;
-    std::cout << " Final Statistics" << std::endl;
-    std::cout << "========================================" << std::endl;
-    std::cout << "Producer:" << std::endl;
-    std::cout << "  Published:   " << voltage_producer.total_published() << std::endl;
-    std::cout << "  Dropped:     " << voltage_producer.total_dropped() << std::endl;
-    std::cout << "Consumer:" << std::endl;
-    std::cout << "  Processed:   " << consumer_processed << std::endl;
-    std::cout << "  Errors:      " << consumer_errors << std::endl;
-    std::cout << "Queue:" << std::endl;
-    std::cout << "  Total pushed: " << voltage_queue.total_pushed() << std::endl;
-    std::cout << "  Total popped: " << voltage_queue.total_popped() << std::endl;
-    std::cout << "  Dropped:      " << voltage_queue.dropped_count() << std::endl;
-    std::cout << "Pool:" << std::endl;
-    std::cout << "  Acquired:    " << voltage_pool.total_acquired() << std::endl;
-    std::cout << "  Released:    " << voltage_pool.total_released() << std::endl;
-    std::cout << "  In use:      " << voltage_pool.in_use_count() << std::endl;
-    std::cout << "  Leaked:      " << voltage_pool.leaked_on_shutdown() << std::endl;
-
-    if (voltage_pool.leaked_on_shutdown() > 0)
+    catch (const std::exception &e)
     {
-        std::cerr << "\nWARNING: Memory leak detected! "
-                  << voltage_pool.leaked_on_shutdown()
-                  << " batches not returned to pool." << std::endl;
+        std::cerr << "\n[Main] FATAL ERROR: " << e.what() << std::endl;
+        return 1;
     }
-
-    std::cout << "\n[Main] Clean exit completed." << std::endl;
-    return 0;
 }
