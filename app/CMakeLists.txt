@@ -26,7 +26,7 @@ target_link_libraries(${BMS_EXEC_NAME} PRIVATE
     Boost::chrono
     Threads::Threads
     libmodbus::modbus
-    curl
+    CURL::libcurl
 )
 
 # Define any required compile-time macros for the target
@@ -39,4 +39,15 @@ target_compile_definitions(${BMS_EXEC_NAME} PRIVATE
 # within the build tree for easier discovery and organization
 set_target_properties(${BMS_EXEC_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin
+)
+
+# Set output directory based on build type
+if(CMAKE_CROSSCOMPILING)
+    set(OUTPUT_DIR "${PROJECT_SOURCE_DIR}/rasp")
+else()
+    set(OUTPUT_DIR "${PROJECT_SOURCE_DIR}/bin")
+endif()
+
+set_target_properties(${BMS_EXEC_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
 )

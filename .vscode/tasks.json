@@ -15,6 +15,19 @@
             "group": "build"
         },
         {
+            "label": "Build CMake (ARM32)",
+            "type": "shell",
+            "command": "cmake --fresh -B build/build-arm32 -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-armhf.cmake -DCMAKE_C_FLAGS_RELEASE='-O0 -DNDEBUG' -DCMAKE_CXX_FLAGS_RELEASE='-O0 -DNDEBUG'",
+            "group": "build"
+        },
+        {
+            "label": "Compile (ARM32)",
+            "type": "shell",
+            "command": "cmake --build build/build-arm32 -j4",
+            "dependsOn": "Build CMake (ARM32)",
+            "group": "build"
+        },
+        {
             "label": "Clean Build",
             "type": "shell",
             "command": "rm -rf build",

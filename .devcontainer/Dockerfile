@@ -44,4 +44,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # --- Stage 4: Set Timezone ---
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# --- Stage 5: Post Create Command ---
+# --- Stage 5: Cross-compile tools ---
+RUN dpkg --add-architecture armhf \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf \
+        # Target (armhf) libraries needed at link time
+        libboost-system-dev:armhf \
+        libboost-thread-dev:armhf \
+        libboost-chrono-dev:armhf \
+        libmodbus-dev:armhf \
+        libcurl4-openssl-dev:armhf \
+        libssl-dev:armhf \
+        zlib1g-dev:armhf \
+    && rm -rf /var/lib/apt/lists/*

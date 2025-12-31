@@ -65,6 +65,7 @@ CPMAddPackage(
 # ------------------------------------ REQUIREMENTS ------------------------------------ #
 find_package(Boost REQUIRED COMPONENTS system thread chrono)
 find_package(Threads REQUIRED)
+find_package(CURL REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(PkgConfig REQUIRED)
 

@@ -2,6 +2,7 @@
 build/
 bin/*
 !bin/.gitkeep
+rasp/bms
 
 # python stuffs
 __pycache__/
