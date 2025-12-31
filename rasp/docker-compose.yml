@@ -8,15 +8,15 @@ services:
     depends_on:
       - mosquitto
       - influxdb3
+    working_dir: /opt/bms
+    entrypoint: ["/opt/bms/entrypoint.sh"]
     volumes:
-      - ./bin/bms:/opt/bms/bms:ro
+      - ./bin:/opt/bms/bin:ro
+      - ./config:/opt/bms/config:rw
+      - ./scripts:/opt/bms/scripts:ro
+      - ./entrypoint.sh:/opt/bms/entrypoint.sh:ro
     environment:
       TZ: America/Sao_Paulo
-      INFLUXDB3_URL: "http://influxdb3:8181"
-      MQTT_HOST: "mosquitto"
-      MQTT_PORT: "1883"
-    ports:
-      - "8000:8000"
 
   mosquitto:
     image: eclipse-mosquitto:2.0

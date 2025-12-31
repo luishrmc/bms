@@ -1,5 +1,5 @@
 {
-    "name": "ATR Dev C++ and Python",
+    "name": "Battery Management System Dev Container",
     "dockerComposeFile": "docker-compose.yml",
     "service": "app",
     "workspaceFolder": "/home/bms/workspace",
@@ -14,7 +14,6 @@
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "ms-python.debugpy",
-                "visualstudioexptteam.vscodeintellicode",
                 "kevinrose.vsc-python-indent",
                 // --- C/C++ stack ---
                 "ms-vscode.cpptools",

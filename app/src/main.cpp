@@ -20,6 +20,7 @@
 #include <iomanip>
 #include <csignal>
 #include <sstream>
+#include <cstdlib>
 
 // ========================================================================
 // Global Shutdown Flag
@@ -106,16 +107,20 @@ void print_temperature_sample(const bms::TemperatureBatch *batch)
 
 std::string get_token()
 {
-    nlohmann::json j;
-    std::ifstream token_file("config/influxdb3/token.json");
-    if (token_file.is_open())
+    try
     {
+        nlohmann::json j;
+        std::ifstream token_file("config/influxdb3/token.json");
         token_file >> j;
         token_file.close();
         if (j.contains("token") && j["token"].is_string())
         {
             return j["token"].get<std::string>();
         }
+    }
+    catch (const nlohmann::json::exception &e)
+    {
+        std::cout << "[Main] Error: Failed to parse token JSON file." << std::endl;
     }
     return "";
 }
@@ -131,7 +136,7 @@ int main()
     std::signal(SIGTERM, signal_handler);
 
     std::cout << "========================================" << std::endl;
-    std::cout << "  BMS Data Logger - InfluxDB Test" << std::endl;
+    std::cout << "          BMS Data Logger               " << std::endl;
     std::cout << "========================================" << std::endl;
 
     // ========================================================================
