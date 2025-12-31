@@ -1,0 +1,70 @@
+services:
+  app:
+    container_name: bms
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+      - influxdb3
+    volumes:
+      - ./bin/bms:/opt/bms/bms:ro
+    environment:
+      TZ: America/Sao_Paulo
+      INFLUXDB3_URL: "http://influxdb3:8181"
+      MQTT_HOST: "mosquitto"
+      MQTT_PORT: "1883"
+    ports:
+      - "8000:8000"
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./config/mosquitto/config:/mosquitto/config
+      - ./config/mosquitto/data:/mosquitto/data
+      - ./config/mosquitto/log:/mosquitto/log
+
+  influxdb3:
+    image: influxdb:3-core
+    container_name: influxdb3-core-bms
+    restart: unless-stopped
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./config/influxdb3/core/data:/var/lib/influxdb3/data
+      - ./config/influxdb3/core/plugins:/var/lib/influxdb3/plugins
+    command:
+      - influxdb3
+      - serve
+      - --node-id=node0
+      - --object-store=file
+      - --data-dir=/var/lib/influxdb3/data
+      - --plugin-dir=/var/lib/influxdb3/plugins
+      - --http-bind=0.0.0.0:8181
+    environment:
+      LOG_FILTER: debug
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana-pse
+    restart: unless-stopped
+    user: "${UID:-1000}:${GID:-1000}"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config/grafana/data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=influxdata-flightsql-datasource
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    depends_on:
+      - influxdb3

@@ -13,6 +13,7 @@ services:
     security_opt:
       - seccomp=unconfined
     command: sleep infinity
+
   # The Eclipse Mosquitto MQTT broker service
   mosquitto:
     image: eclipse-mosquitto:2.0
@@ -24,6 +25,7 @@ services:
       - ../config/mosquitto/config:/mosquitto/config
       - ../config/mosquitto/data:/mosquitto/data
       - ../config/mosquitto/log:/mosquitto/log
+
   # The InfluxDB 3 Core service
   influxdb3:
     image: influxdb:3-core
@@ -44,6 +46,7 @@ services:
       - --http-bind=0.0.0.0:8181
     environment:
       LOG_FILTER: debug
+
   # InfluxDB 3 Explorer UI
   influxdb3-explorer:
     image: influxdata/influxdb3-ui:1.1.0
