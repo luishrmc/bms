@@ -6,18 +6,3 @@
 static constexpr std::string_view project_name = "@PROJECT_NAME@";
 static constexpr std::string_view project_version = "@PROJECT_VERSION@";
 static constexpr std::string_view git_sha = "@GIT_SHA@";
-
-#define MQTT_URL "mqtts://mosquitto:8883"
-#define MQTT_CLIENT_ID "ssl_publish_cpp"
-#define MQTT_USER_NAME "lumac"
-#define MQTT_PASSWORD "128Parsecs!"
-#define MQTT_SOURCE_TOPIC "bms/ufmg/delt/test/"
-#define MQTT_DEFAULT_QOS 1
-#define MQTT_DEFAULT_TIME_OUT_MS 10000
-
-#define MQTT_TOPIC_VOLTAGE "voltage"
-#define MQTT_TOPIC_TEMP "temperature"
-#define MQTT_TOPIC_STATUS "status"
-#define MQTT_TOPIC_CONFIG "config"
-#define MQTT_TOPIC_ERROR "error"
-#define MQTT_TOPIC_STATES "states"

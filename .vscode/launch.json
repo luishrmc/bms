@@ -5,7 +5,7 @@
       "name": "(gdb) Launch Debug",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/project_output/bms",
+      "program": "${workspaceFolder}/bin/bms",
       "args": [],
       "stopAtEntry": true,
       "cwd": "${workspaceFolder}",

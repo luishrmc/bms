@@ -38,5 +38,5 @@ target_compile_definitions(${BMS_EXEC_NAME} PRIVATE
 # Place the built executable in a structured 'project_output' directory
 # within the build tree for easier discovery and organization
 set_target_properties(${BMS_EXEC_NAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/project_output
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin
 )

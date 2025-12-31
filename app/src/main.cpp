@@ -9,6 +9,9 @@
 #include "batch_pool.hpp"
 #include "batch_structures.hpp"
 
+#include <nlohmann/json.hpp>
+#include <fstream>
+
 #include <boost/atomic.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/chrono.hpp>
@@ -99,6 +102,22 @@ void print_temperature_sample(const bms::TemperatureBatch *batch)
     }
 
     std::cout << std::endl;
+}
+
+std::string get_token()
+{
+    nlohmann::json j;
+    std::ifstream token_file("config/influxdb3/token.json");
+    if (token_file.is_open())
+    {
+        token_file >> j;
+        token_file.close();
+        if (j.contains("token") && j["token"].is_string())
+        {
+            return j["token"].get<std::string>();
+        }
+    }
+    return "";
 }
 
 // ========================================================================
@@ -204,7 +223,7 @@ int main()
 
     db_cfg.base_url = "http://influxdb3:8181";
     db_cfg.database = "battery_data";
-    db_cfg.token = "apiv3_r3bPKTc1j1vBIf-E6gvDeO_Mn6tAYaSjHyGTyZ-oMNChOva0PZwWXVSFDiRyyYtQ8kCPVxqrKPhn7vE-9mWJ2Q";
+    db_cfg.token = get_token();
 
     db_cfg.voltage1_table = "voltage1";
     db_cfg.voltage2_table = "voltage2";

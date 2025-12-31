@@ -23,7 +23,7 @@
         {
             "label": "Run (Debug)",
             "type": "shell",
-            "command": "./build/project_output/bms",
+            "command": "./bin/bms",
             "dependsOn": "Compile (Debug)",
             "group": "test"
         },

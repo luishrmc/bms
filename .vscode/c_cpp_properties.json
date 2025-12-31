@@ -1,0 +1,18 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/build/_deps/paho-mqttpp3-src/include",
+                "${workspaceFolder}/build/_deps/paho-mqttpp3-src/src",
+                "${workspaceFolder}/build/_deps/paho-mqttpp3-src/externals/paho-mqtt-c/src",
+                "/usr/include/modbus"
+            ],
+            "defines": [],
+            "cStandard": "c17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

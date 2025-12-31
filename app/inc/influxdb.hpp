@@ -22,7 +22,7 @@ namespace bms
         // Server connection
         std::string base_url{"http://influxdb3:8181"};
         std::string database{"battery_data"};
-        std::string token{"apiv3_r3bPKTc1j1vBIf-E6gvDeO_Mn6tAYaSjHyGTyZ-oMNChOva0PZwWXVSFDiRyyYtQ8kCPVxqrKPhn7vE-9mWJ2Q"};
+        std::string token{""};
 
         // Table names (measurements in Line Protocol)
         std::string voltage1_table{"voltage1"};

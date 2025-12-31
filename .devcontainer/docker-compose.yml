@@ -13,6 +13,9 @@ services:
     security_opt:
       - seccomp=unconfined
     command: sleep infinity
+    depends_on:
+      - influxdb3
+      - mosquitto
 
   # The Eclipse Mosquitto MQTT broker service
   mosquitto:
