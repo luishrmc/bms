@@ -9,7 +9,6 @@ RASP_IP="192.168.0.15"
 ssh ${USERNAME}@${RASP_IP} "mkdir -p /home/${USERNAME}/bms/bin"
 ssh ${USERNAME}@${RASP_IP} "mkdir -p /home/${USERNAME}/bms/scripts"
 ssh ${USERNAME}@${RASP_IP} "mkdir -p /home/${USERNAME}/bms/config/influxdb3/core/{data,plugins}"
-ssh ${USERNAME}@${RASP_IP} "mkdir -p /home/${USERNAME}/bms/config/influxdb3/explorer/{config,db}"
 ssh ${USERNAME}@${RASP_IP} "mkdir -p /home/${USERNAME}/bms/config/grafana/{dashboards,data,provisioning}"
 ssh ${USERNAME}@${RASP_IP} "mkdir -p /home/${USERNAME}/bms/config/mosquitto/{config,data,logs}"
 

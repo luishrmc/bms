@@ -1,0 +1,516 @@
+{
+  "id": null,
+  "uid": "bms-data-graph",
+  "title": "BMS Data Graph",
+  "tags": [
+    "bms",
+    "graphs",
+    "influxdb3"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Device 1 (Voltage1)",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "title": "D1 Cell Voltages (ch0\u2013ch7)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "influxdata-flightsql-datasource",
+        "uid": "af8s6riia38jkd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT\n  time AS time,\n  ch0 AS \"ch0\",\n  ch1 AS \"ch1\",\n  ch2 AS \"ch2\",\n  ch3 AS \"ch3\",\n  ch4 AS \"ch4\",\n  ch5 AS \"ch5\",\n  ch6 AS \"ch6\",\n  ch7 AS \"ch7\"\nFROM voltage1\nWHERE $__timeFilter(time)\nORDER BY time",
+          "rawEditor": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "ch\\d+"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "volt"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "D1 Heatmap (Cells \u00d7 Time)",
+      "type": "state-timeline",
+      "datasource": {
+        "type": "influxdata-flightsql-datasource",
+        "uid": "af8s6riia38jkd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "WITH base AS (\n  SELECT time AS time, ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7\n  FROM voltage1\n  WHERE $__timeFilter(time)\n)\nSELECT time, 'D1 ch0' AS series, ch0 AS value FROM base\nUNION ALL\nSELECT time, 'D1 ch1' AS series, ch1 AS value FROM base\nUNION ALL\nSELECT time, 'D1 ch2' AS series, ch2 AS value FROM base\nUNION ALL\nSELECT time, 'D1 ch3' AS series, ch3 AS value FROM base\nUNION ALL\nSELECT time, 'D1 ch4' AS series, ch4 AS value FROM base\nUNION ALL\nSELECT time, 'D1 ch5' AS series, ch5 AS value FROM base\nUNION ALL\nSELECT time, 'D1 ch6' AS series, ch6 AS value FROM base\nUNION ALL\nSELECT time, 'D1 ch7' AS series, ch7 AS value FROM base\nORDER BY time",
+          "rawEditor": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 90
+          },
+          "unit": "volt",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3.0
+              },
+              {
+                "color": "green",
+                "value": 3.2
+              },
+              {
+                "color": "yellow",
+                "value": 3.55
+              },
+              {
+                "color": "red",
+                "value": 3.6
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": false,
+        "rowHeight": 0.9,
+        "alignValue": "center",
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Device 2 (Voltage2)",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 5,
+      "title": "D2 Cell Voltages (ch0\u2013ch6)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "influxdata-flightsql-datasource",
+        "uid": "af8s6riia38jkd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT\n  time AS time,\n  ch0 AS \"ch0\",\n  ch1 AS \"ch1\",\n  ch2 AS \"ch2\",\n  ch3 AS \"ch3\",\n  ch4 AS \"ch4\",\n  ch5 AS \"ch5\",\n  ch6 AS \"ch6\"\nFROM voltage2\nWHERE $__timeFilter(time)\nORDER BY time",
+          "rawEditor": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "ch[0-6]"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "volt"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Current Sensor (Raw) vs Time (voltage2.ch7)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "influxdata-flightsql-datasource",
+        "uid": "af8s6riia38jkd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT\n  time AS time,\n  ch7 AS \"ch7\"\nFROM voltage2\nWHERE $__timeFilter(time)\nORDER BY time",
+          "rawEditor": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ch7"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Current Raw"
+              },
+              {
+                "id": "unit",
+                "value": "volt"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "D2 Heatmap (Cells \u00d7 Time)",
+      "type": "state-timeline",
+      "datasource": {
+        "type": "influxdata-flightsql-datasource",
+        "uid": "af8s6riia38jkd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "WITH base AS (\n  SELECT time AS time, ch0, ch1, ch2, ch3, ch4, ch5, ch6\n  FROM voltage2\n  WHERE $__timeFilter(time)\n)\nSELECT time, 'D2 ch0' AS series, ch0 AS value FROM base\nUNION ALL\nSELECT time, 'D2 ch1' AS series, ch1 AS value FROM base\nUNION ALL\nSELECT time, 'D2 ch2' AS series, ch2 AS value FROM base\nUNION ALL\nSELECT time, 'D2 ch3' AS series, ch3 AS value FROM base\nUNION ALL\nSELECT time, 'D2 ch4' AS series, ch4 AS value FROM base\nUNION ALL\nSELECT time, 'D2 ch5' AS series, ch5 AS value FROM base\nUNION ALL\nSELECT time, 'D2 ch6' AS series, ch6 AS value FROM base\nORDER BY time",
+          "rawEditor": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 90
+          },
+          "unit": "volt",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3.0
+              },
+              {
+                "color": "green",
+                "value": 3.2
+              },
+              {
+                "color": "yellow",
+                "value": 3.55
+              },
+              {
+                "color": "red",
+                "value": 3.6
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": false,
+        "rowHeight": 0.9,
+        "alignValue": "center",
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Temperature (16 Sensors)",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 9,
+      "title": "Temperature Sensors (sensor0\u2013sensor15)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "influxdata-flightsql-datasource",
+        "uid": "af8s6riia38jkd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT\n  time AS time,\n  sensor0 AS \"sensor0\",\n  sensor1 AS \"sensor1\",\n  sensor2 AS \"sensor2\",\n  sensor3 AS \"sensor3\",\n  sensor4 AS \"sensor4\",\n  sensor5 AS \"sensor5\",\n  sensor6 AS \"sensor6\",\n  sensor7 AS \"sensor7\",\n  sensor8 AS \"sensor8\",\n  sensor9 AS \"sensor9\",\n  sensor10 AS \"sensor10\",\n  sensor11 AS \"sensor11\",\n  sensor12 AS \"sensor12\",\n  sensor13 AS \"sensor13\",\n  sensor14 AS \"sensor14\",\n  sensor15 AS \"sensor15\"\nFROM temperature\nWHERE $__timeFilter(time)\nORDER BY time",
+          "rawEditor": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "sensor\\d+"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Temperature Heatmap (Sensors \u00d7 Time)",
+      "type": "state-timeline",
+      "datasource": {
+        "type": "influxdata-flightsql-datasource",
+        "uid": "af8s6riia38jkd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "WITH base AS (\n  SELECT time AS time, sensor0, sensor1, sensor2, sensor3, sensor4, sensor5, sensor6, sensor7, sensor8, sensor9, sensor10, sensor11, sensor12, sensor13, sensor14, sensor15\n  FROM temperature\n  WHERE $__timeFilter(time)\n)\nSELECT time, 'T sensor0' AS series, sensor0 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor1' AS series, sensor1 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor2' AS series, sensor2 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor3' AS series, sensor3 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor4' AS series, sensor4 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor5' AS series, sensor5 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor6' AS series, sensor6 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor7' AS series, sensor7 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor8' AS series, sensor8 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor9' AS series, sensor9 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor10' AS series, sensor10 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor11' AS series, sensor11 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor12' AS series, sensor12 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor13' AS series, sensor13 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor14' AS series, sensor14 AS value FROM base\nUNION ALL\nSELECT time, 'T sensor15' AS series, sensor15 AS value FROM base\nORDER BY time",
+          "rawEditor": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 90
+          },
+          "unit": "celsius",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 20
+              },
+              {
+                "color": "orange",
+                "value": 45
+              },
+              {
+                "color": "red",
+                "value": 55
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": false,
+        "rowHeight": 0.9,
+        "alignValue": "center",
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        }
+      ]
+    }
+  ]
+}

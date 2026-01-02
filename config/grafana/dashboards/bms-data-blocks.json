@@ -1,0 +1,3387 @@
+{
+    "id": null,
+    "uid": "bms-data-blocks",
+    "title": "BMS Data Blocks",
+    "tags": [
+        "bms",
+        "data blocks",
+        "influxdb3"
+    ],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 2,
+    "refresh": "5s",
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "panels": [
+        {
+            "id": 1,
+            "title": "Data Freshness (s)",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 8,
+                "h": 6
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  to_unixtime(now()) - to_unixtime((SELECT MAX(to_timestamp_micros(time)) FROM voltage1)) AS \"Voltage1 age (s)\",\n  to_unixtime(now()) - to_unixtime((SELECT MAX(to_timestamp_micros(time)) FROM voltage2)) AS \"Voltage2 age (s)\",\n  to_unixtime(now()) - to_unixtime((SELECT MAX(to_timestamp_micros(time)) FROM temperature)) AS \"Temperature age (s)\"",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 10
+                            },
+                            {
+                                "color": "red",
+                                "value": 30
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "vertical",
+                "textMode": "value_and_name",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 3,
+            "title": "Current Sensor (Raw)",
+            "type": "gauge",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 8,
+                "y": 0,
+                "w": 4,
+                "h": 6
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  ch7 AS \"Current Sensor (Raw)\"\nFROM voltage2\nORDER BY time DESC\nLIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "min": 3.0,
+                    "max": 3.6,
+                    "unit": "volt",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 3.45
+                            },
+                            {
+                                "color": "red",
+                                "value": 3.55
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "showThresholdLabels": false,
+                "showThresholdMarkers": true,
+                "orientation": "auto"
+            }
+        },
+        {
+            "id": 4,
+            "title": "Device 1 Voltage Stats",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 0,
+                "w": 4,
+                "h": 6
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  LEAST(ch0,ch1,ch2,ch3,ch4,ch5,ch6,ch7) AS \"Min (V)\",\n  GREATEST(ch0,ch1,ch2,ch3,ch4,ch5,ch6,ch7) AS \"Max (V)\",\n  GREATEST(ch0,ch1,ch2,ch3,ch4,ch5,ch6,ch7) - LEAST(ch0,ch1,ch2,ch3,ch4,ch5,ch6,ch7) AS \"\u0394V (V)\"\nFROM voltage1\nORDER BY time DESC\nLIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Min (V)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Max (V)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "green",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "\u0394V (V)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "green",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 0.05
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 0.1
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value_and_name",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 5,
+            "title": "Device 2 Voltage Stats",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 16,
+                "y": 0,
+                "w": 4,
+                "h": 6
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT\n  LEAST(ch0,ch1,ch2,ch3,ch4,ch5,ch6) AS \"Min (V)\",\n  GREATEST(ch0,ch1,ch2,ch3,ch4,ch5,ch6) AS \"Max (V)\",\n  GREATEST(ch0,ch1,ch2,ch3,ch4,ch5,ch6) - LEAST(ch0,ch1,ch2,ch3,ch4,ch5,ch6) AS \"\u0394V (V)\"\nFROM voltage2\nORDER BY time DESC\nLIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Min (V)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Max (V)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "green",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "\u0394V (V)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "green",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 0.05
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 0.1
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value_and_name",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 6,
+            "title": "Temperature Stats",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 20,
+                "y": 0,
+                "w": 4,
+                "h": 6
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "WITH latest AS (SELECT * FROM temperature ORDER BY time DESC LIMIT 1),\nvals AS (\n  SELECT NULLIF(sensor0,0) AS v FROM latest UNION ALL\n  SELECT NULLIF(sensor1,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor2,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor3,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor4,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor5,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor6,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor7,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor8,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor9,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor10,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor11,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor12,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor13,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor14,0) FROM latest UNION ALL\n  SELECT NULLIF(sensor15,0) FROM latest\n)\nSELECT\n  MIN(v) AS \"Min (\u00b0C)\",\n  MAX(v) AS \"Max (\u00b0C)\",\n  AVG(v) AS \"Avg (\u00b0C)\"\nFROM vals\nWHERE v IS NOT NULL",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Min (\u00b0C)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "blue",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 20
+                                        },
+                                        {
+                                            "color": "orange",
+                                            "value": 40
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 50
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Max (\u00b0C)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "blue",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 20
+                                        },
+                                        {
+                                            "color": "orange",
+                                            "value": 45
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 55
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Avg (\u00b0C)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "blue",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 20
+                                        },
+                                        {
+                                            "color": "orange",
+                                            "value": 40
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 50
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value_and_name",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 7,
+            "title": "D1 ch0",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 6,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch0 AS \"D1 ch0\" FROM voltage1 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D1 ch0"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 8,
+            "title": "D1 ch1",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 3,
+                "y": 6,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch1 AS \"D1 ch1\" FROM voltage1 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D1 ch1"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 9,
+            "title": "D1 ch2",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 6,
+                "y": 6,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch2 AS \"D1 ch2\" FROM voltage1 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D1 ch2"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 10,
+            "title": "D1 ch3",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 9,
+                "y": 6,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch3 AS \"D1 ch3\" FROM voltage1 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D1 ch3"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 11,
+            "title": "D1 ch4",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 6,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch4 AS \"D1 ch4\" FROM voltage1 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D1 ch4"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 12,
+            "title": "D1 ch5",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 15,
+                "y": 6,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch5 AS \"D1 ch5\" FROM voltage1 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D1 ch5"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 13,
+            "title": "D1 ch6",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 18,
+                "y": 6,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch6 AS \"D1 ch6\" FROM voltage1 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D1 ch6"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 14,
+            "title": "D1 ch7",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 21,
+                "y": 6,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch7 AS \"D1 ch7\" FROM voltage1 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D1 ch7"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 15,
+            "title": "D2 ch0",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 10,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch0 AS \"D2 ch0\" FROM voltage2 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D2 ch0"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 16,
+            "title": "D2 ch1",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 3,
+                "y": 10,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch1 AS \"D2 ch1\" FROM voltage2 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D2 ch1"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 17,
+            "title": "D2 ch2",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 6,
+                "y": 10,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch2 AS \"D2 ch2\" FROM voltage2 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D2 ch2"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 18,
+            "title": "D2 ch3",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 9,
+                "y": 10,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch3 AS \"D2 ch3\" FROM voltage2 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D2 ch3"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 19,
+            "title": "D2 ch4",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 10,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch4 AS \"D2 ch4\" FROM voltage2 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D2 ch4"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 20,
+            "title": "D2 ch5",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 15,
+                "y": 10,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch5 AS \"D2 ch5\" FROM voltage2 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D2 ch5"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 21,
+            "title": "D2 ch6",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 18,
+                "y": 10,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch6 AS \"D2 ch6\" FROM voltage2 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "D2 ch6"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "red",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.0
+                                        },
+                                        {
+                                            "color": "green",
+                                            "value": 3.2
+                                        },
+                                        {
+                                            "color": "yellow",
+                                            "value": 3.55
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.6
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 22,
+            "title": "D2 ch7",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 21,
+                "y": 10,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT ch7 AS \"Current Raw\" FROM voltage2 ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Current Raw"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "volt"
+                            },
+                            {
+                                "id": "thresholds",
+                                "value": {
+                                    "mode": "absolute",
+                                    "steps": [
+                                        {
+                                            "color": "green",
+                                            "value": null
+                                        },
+                                        {
+                                            "color": "orange",
+                                            "value": 3.45
+                                        },
+                                        {
+                                            "color": "red",
+                                            "value": 3.55
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 200,
+            "title": "T sensor0",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 14,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor0 AS \"T sensor0\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor0"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 201,
+            "title": "T sensor1",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 3,
+                "y": 14,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor1 AS \"T sensor1\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor1"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 202,
+            "title": "T sensor2",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 6,
+                "y": 14,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor2 AS \"T sensor2\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor2"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 203,
+            "title": "T sensor3",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 9,
+                "y": 14,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor3 AS \"T sensor3\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor3"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 204,
+            "title": "T sensor4",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 14,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor4 AS \"T sensor4\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor4"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 205,
+            "title": "T sensor5",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 15,
+                "y": 14,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor5 AS \"T sensor5\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor5"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 206,
+            "title": "T sensor6",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 18,
+                "y": 14,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor6 AS \"T sensor6\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor6"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 207,
+            "title": "T sensor7",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 21,
+                "y": 14,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor7 AS \"T sensor7\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor7"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 208,
+            "title": "T sensor8",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 18,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor8 AS \"T sensor8\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor8"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 209,
+            "title": "T sensor9",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 3,
+                "y": 18,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor9 AS \"T sensor9\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor9"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 210,
+            "title": "T sensor10",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 6,
+                "y": 18,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor10 AS \"T sensor10\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor10"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 211,
+            "title": "T sensor11",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 9,
+                "y": 18,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor11 AS \"T sensor11\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor11"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 212,
+            "title": "T sensor12",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 18,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor12 AS \"T sensor12\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor12"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 213,
+            "title": "T sensor13",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 15,
+                "y": 18,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor13 AS \"T sensor13\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor13"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 214,
+            "title": "T sensor14",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 18,
+                "y": 18,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor14 AS \"T sensor14\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor14"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 215,
+            "title": "T sensor15",
+            "type": "stat",
+            "datasource": {
+                "type": "influxdata-flightsql-datasource",
+                "uid": "af8s6riia38jkd"
+            },
+            "gridPos": {
+                "x": 21,
+                "y": 18,
+                "w": 3,
+                "h": 4
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "queryText": "SELECT sensor15 AS \"T sensor15\" FROM temperature ORDER BY time DESC LIMIT 1",
+                    "rawEditor": true,
+                    "format": "table"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 20
+                            },
+                            {
+                                "color": "orange",
+                                "value": 45
+                            },
+                            {
+                                "color": "red",
+                                "value": 55
+                            }
+                        ]
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "T sensor15"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "celsius"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "options": {
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": ""
+                },
+                "orientation": "horizontal",
+                "textMode": "value",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        }
+    ]
+}

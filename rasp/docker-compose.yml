@@ -35,6 +35,9 @@ services:
     restart: unless-stopped
     ports:
       - "8181:8181"
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     volumes:
       - ./config/influxdb3/core/data:/var/lib/influxdb3/data
       - ./config/influxdb3/core/plugins:/var/lib/influxdb3/plugins
