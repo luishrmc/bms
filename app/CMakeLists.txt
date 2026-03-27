@@ -20,7 +20,6 @@ target_include_directories(${BMS_EXEC_NAME} PRIVATE
 # Link required internal libraries to the executable
 target_link_libraries(${BMS_EXEC_NAME} PRIVATE
     nlohmann_json::nlohmann_json       
-    PahoMqttCpp::paho-mqttpp3 
     Boost::system
     Boost::thread
     Boost::chrono

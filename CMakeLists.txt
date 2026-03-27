@@ -43,24 +43,6 @@ if(CCACHE_FOUND)
 endif()
 
 # ------------------------------------ DEPENDENCIES ------------------------------------ #
-# CMake Package Manager
-include(CPM)
-
-# Paho C++ + bundled Paho C
-CPMAddPackage(
-  NAME paho-mqttpp3
-  GITHUB_REPOSITORY eclipse-paho/paho.mqtt.cpp
-  GIT_TAG v1.5.3
-
-  OPTIONS
-    "PAHO_WITH_MQTT_C ON"          # build bundled C lib; avoids find_package failure
-    "PAHO_BUILD_STATIC ON"         # produce static lib (good for embedded)
-    "PAHO_BUILD_SHARED OFF"
-    "PAHO_WITH_SSL OFF"
-    "PAHO_BUILD_EXAMPLES OFF"
-    "PAHO_BUILD_SAMPLES OFF"
-    "PAHO_BUILD_TESTS OFF"
-)
 
 # ------------------------------------ REQUIREMENTS ------------------------------------ #
 find_package(Boost REQUIRED COMPONENTS system thread chrono)
