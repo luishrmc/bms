@@ -1,3 +1,11 @@
+/**
+ * @file        influxdb.cpp
+ * @author      Luis Maciel (luishrm@ufmg.br)
+ * @brief       Source file for the BMS data-logger module.
+ * @version     0.0.1
+ * @date        2026-03-25
+ */
+
 #include "influxdb.hpp"
 
 #include <curl/curl.h>
@@ -11,12 +19,28 @@ namespace bms
 {
 
     // libcurl callbacks
-    static size_t discard_callback(void *, size_t size, size_t nmemb, void *)
+    /**
+ * @brief Discards HTTP response bytes received by libcurl.
+ * @param[in] unused Pointer to received data (unused).
+ * @param[in] size Element size in bytes.
+ * @param[in] nmemb Number of elements received.
+ * @param[in] user_data User pointer passed by libcurl (unused).
+ * @return Total number of consumed bytes to signal success to libcurl.
+ */
+static size_t discard_callback(void *, size_t size, size_t nmemb, void *)
     {
         return size * nmemb;
     }
 
-    static size_t error_callback(void *contents, size_t size, size_t nmemb, void *userp)
+    /**
+ * @brief Captures HTTP error-body bytes returned by InfluxDB.
+ * @param[in] contents Pointer to received payload chunk.
+ * @param[in] size Element size in bytes.
+ * @param[in] nmemb Number of elements received.
+ * @param[in,out] userp Pointer to std::string accumulating error text.
+ * @return Total number of consumed bytes to signal success to libcurl.
+ */
+static size_t error_callback(void *contents, size_t size, size_t nmemb, void *userp)
     {
         std::string *error = static_cast<std::string *>(userp);
         error->append(static_cast<char *>(contents), size * nmemb);
@@ -25,17 +49,28 @@ namespace bms
 
     // Global init (thread-safe singleton using boost::call_once)
     static boost::once_flag curl_init_flag = BOOST_ONCE_INIT;
-    static void init_curl_global()
+    /**
+ * @brief Initializes global libcurl state once per process.
+ * @note Thread-safe when called through boost::call_once.
+ */
+static void init_curl_global()
     {
         curl_global_init(CURL_GLOBAL_DEFAULT);
     }
 
-    static void ensure_curl_global_init()
+    /**
+ * @brief Ensures process-wide libcurl initialization has run.
+ */
+static void ensure_curl_global_init()
     {
         boost::call_once(curl_init_flag, init_curl_global);
     }
 
-    InfluxHTTPClient::InfluxHTTPClient(const InfluxDBConfig &cfg)
+    /**
+ * @brief Constructs an HTTP client bound to one InfluxDB configuration.
+ * @param[in] cfg InfluxDB endpoint, retry and batching configuration values.
+ */
+InfluxHTTPClient::InfluxHTTPClient(const InfluxDBConfig &cfg)
         : cfg_(cfg)
     {
         ensure_curl_global_init();
@@ -73,7 +108,8 @@ namespace bms
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     }
 
-    InfluxHTTPClient::~InfluxHTTPClient()
+    /** @brief Releases libcurl handles owned by this client instance. */
+InfluxHTTPClient::~InfluxHTTPClient()
     {
         if (headers_)
         {
@@ -86,17 +122,27 @@ namespace bms
         }
     }
 
-    std::string InfluxHTTPClient::make_write_url_() const
+    /** @brief Builds the InfluxDB write endpoint URL.
+ * @return Fully qualified write_lp URL with database and precision query parameters.
+ */
+std::string InfluxHTTPClient::make_write_url_() const
     {
         return cfg_.base_url + "/api/v3/write_lp?db=" + cfg_.database + "&precision=ns";
     }
 
-    std::string InfluxHTTPClient::make_ping_url_() const
+    /** @brief Builds the InfluxDB ping endpoint URL.
+ * @return Fully qualified /ping URL.
+ */
+std::string InfluxHTTPClient::make_ping_url_() const
     {
         return cfg_.base_url + "/ping";
     }
 
-    bool InfluxHTTPClient::ping() noexcept
+    /**
+ * @brief Checks server availability via the /ping endpoint.
+ * @return True when the server replies with HTTP 204, otherwise false.
+ */
+bool InfluxHTTPClient::ping() noexcept
     {
         CURL *curl = static_cast<CURL *>(curl_);
 
@@ -127,7 +173,13 @@ namespace bms
         return true;
     }
 
-    bool InfluxHTTPClient::write_lp(const std::string &payload, std::string &error_out) noexcept
+    /**
+ * @brief Sends newline-delimited Line Protocol payload to InfluxDB 3.
+ * @param[in] payload Line Protocol text to post.
+ * @param[out] error_out Detailed transport/HTTP error message on failure.
+ * @return True when InfluxDB replies HTTP 204, otherwise false.
+ */
+bool InfluxHTTPClient::write_lp(const std::string &payload, std::string &error_out) noexcept
     {
         CURL *curl = static_cast<CURL *>(curl_);
 

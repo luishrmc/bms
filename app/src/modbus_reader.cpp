@@ -1,3 +1,11 @@
+/**
+ * @file        modbus_reader.cpp
+ * @author      Luis Maciel (luishrm@ufmg.br)
+ * @brief       Source file for the BMS data-logger module.
+ * @version     0.0.1
+ * @date        2026-03-25
+ */
+
 #include "modbus_reader.hpp"
 
 #include <modbus/modbus.h>
@@ -9,22 +17,33 @@
 namespace bms
 {
 
-    static modbus_t *as_modbus(void *p) noexcept
+    /** @brief Casts an opaque context pointer to libmodbus type.
+ * @param[in] p Opaque context pointer.
+ * @return The same pointer reinterpreted as modbus_t*.
+ */
+static modbus_t *as_modbus(void *p) noexcept
     {
         return reinterpret_cast<modbus_t *>(p);
     }
 
-    ModbusTcpClient::ModbusTcpClient(ModbusTcpConfig cfg)
+    /** @brief Creates a MODBUS/TCP client with a copied configuration.
+ * @param[in] cfg Host, unit ID, timeout and retry parameters.
+ */
+ModbusTcpClient::ModbusTcpClient(ModbusTcpConfig cfg)
         : cfg_(std::move(cfg))
     {
     }
 
-    ModbusTcpClient::~ModbusTcpClient()
+    /** @brief Closes and frees any active MODBUS context. */
+ModbusTcpClient::~ModbusTcpClient()
     {
         disconnect();
     }
 
-    bool ModbusTcpClient::connect()
+    /** @brief Establishes a new TCP session to the configured MODBUS device.
+ * @return True when the connection is established, otherwise false.
+ */
+bool ModbusTcpClient::connect()
     {
         disconnect();
 
@@ -82,7 +101,8 @@ namespace bms
         return false;
     }
 
-    void ModbusTcpClient::disconnect()
+    /** @brief Closes the current TCP session if one is active. */
+void ModbusTcpClient::disconnect()
     {
         if (ctx_)
         {
@@ -97,12 +117,18 @@ namespace bms
         connected_ = false;
     }
 
-    bool ModbusTcpClient::is_connected() const noexcept
+    /** @brief Reports whether a valid MODBUS session is currently open.
+ * @return True when the client has a live context and connection flag set.
+ */
+bool ModbusTcpClient::is_connected() const noexcept
     {
         return connected_ && ctx_ != nullptr;
     }
 
-    bool ModbusTcpClient::ensure_connected_()
+    /** @brief Reconnects on-demand when a read is attempted while disconnected.
+ * @return True if connected after the check, otherwise false.
+ */
+bool ModbusTcpClient::ensure_connected_()
     {
         if (is_connected())
         {
@@ -112,7 +138,14 @@ namespace bms
         return connect();
     }
 
-    bool ModbusTcpClient::read_input_registers(
+    /**
+ * @brief Reads a contiguous block of MODBUS input registers.
+ * @param[in] addr First register address.
+ * @param[in] count Number of 16-bit registers to read.
+ * @param[out] dest Output buffer receiving register words.
+ * @return True when all requested registers are read, otherwise false.
+ */
+bool ModbusTcpClient::read_input_registers(
         int addr,
         int count,
         std::uint16_t *dest)
@@ -154,7 +187,12 @@ namespace bms
         return false;
     }
 
-    bool ModbusTcpClient::read_bms_block(
+    /**
+ * @brief Reads the canonical BMS register block used by acquisition tasks.
+ * @param[out] out_regs Fixed-size destination array with 35 register words.
+ * @return True on successful block read, otherwise false.
+ */
+bool ModbusTcpClient::read_bms_block(
         std::array<std::uint16_t, kRegisterBlockCount> &out_regs)
     {
         // Cast kRegisterBlockCount to int for libmodbus API
@@ -164,7 +202,12 @@ namespace bms
             out_regs.data());
     }
 
-    SampleFlags ModbusTcpClient::read_voltage_batch(VoltageBatch &batch)
+    /**
+ * @brief Performs a full MODBUS read and populates one voltage batch.
+ * @param[out] batch Batch populated with timestamp and channel voltages in volts (V).
+ * @return SampleFlags::None on success or an error flag (e.g., CommError).
+ */
+SampleFlags ModbusTcpClient::read_voltage_batch(VoltageBatch &batch)
     {
         std::array<std::uint16_t, kRegisterBlockCount> registers;
 
@@ -182,7 +225,12 @@ namespace bms
         return SampleFlags::None;
     }
 
-    SampleFlags ModbusTcpClient::read_temperature_batch(TemperatureBatch &batch)
+    /**
+ * @brief Performs a full MODBUS read and populates one temperature batch.
+ * @param[out] batch Batch populated with timestamp and sensor values in degrees Celsius (°C).
+ * @return SampleFlags::None on success or an error flag (e.g., CommError).
+ */
+SampleFlags ModbusTcpClient::read_temperature_batch(TemperatureBatch &batch)
     {
         std::array<std::uint16_t, kRegisterBlockCount> registers;
 
@@ -200,7 +248,10 @@ namespace bms
         return SampleFlags::None;
     }
 
-    void ModbusTcpClient::set_response_timeout(std::chrono::milliseconds timeout)
+    /** @brief Updates response timeout configuration and active context settings.
+ * @param[in] timeout Maximum wait for MODBUS responses in milliseconds.
+ */
+void ModbusTcpClient::set_response_timeout(std::chrono::milliseconds timeout)
     {
         cfg_.response_timeout_sec = static_cast<int>(timeout.count() / 1000);
         cfg_.response_timeout_usec = static_cast<int>((timeout.count() % 1000) * 1000);
@@ -213,7 +264,10 @@ namespace bms
         }
     }
 
-    void ModbusTcpClient::set_byte_timeout(std::chrono::milliseconds timeout)
+    /** @brief Updates inter-byte timeout configuration and active context settings.
+ * @param[in] timeout Maximum gap between received bytes in milliseconds.
+ */
+void ModbusTcpClient::set_byte_timeout(std::chrono::milliseconds timeout)
     {
         cfg_.byte_timeout_sec = static_cast<int>(timeout.count() / 1000);
         cfg_.byte_timeout_usec = static_cast<int>((timeout.count() % 1000) * 1000);
@@ -226,7 +280,11 @@ namespace bms
         }
     }
 
-    void ModbusTcpClient::update_error_(const char *prefix)
+    /**
+ * @brief Refreshes status_.last_error from current errno/libmodbus error text.
+ * @param[in] prefix Context prefix prepended to the generated error message.
+ */
+void ModbusTcpClient::update_error_(const char *prefix)
     {
         status_.last_errno = errno;
         const char *libmsg = modbus_strerror(errno);

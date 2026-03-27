@@ -1,3 +1,11 @@
+/**
+ * @file        main.cpp
+ * @author      Luis Maciel (luishrm@ufmg.br)
+ * @brief       Source file for the BMS data-logger module.
+ * @version     0.0.1
+ * @date        2026-03-25
+ */
+
 // src/main.cpp
 // BMS Data Logger - InfluxDB Integration Test
 
@@ -28,6 +36,9 @@
 
 boost::atomic<bool> g_running{true};
 
+/** @brief Handles OS termination signals and requests graceful shutdown.
+ * @param[in] signum POSIX signal number (unused).
+ */
 void signal_handler(int)
 {
     std::cout << "\n[Main] Shutdown signal received..." << std::endl;
@@ -38,6 +49,11 @@ void signal_handler(int)
 // Helper Functions
 // ========================================================================
 
+/**
+ * @brief Formats device timestamp into RFC3339 UTC string with millisecond resolution.
+ * @param[in] ts Device timestamp structure to format.
+ * @return Formatted timestamp string (e.g., 2026-03-25T12:34:56.789Z).
+ */
 std::string format_timestamp(const bms::DeviceTimestamp &ts)
 {
     auto time_t_val = std::chrono::system_clock::to_time_t(ts.timestamp);
@@ -56,6 +72,10 @@ std::string format_timestamp(const bms::DeviceTimestamp &ts)
     return oss.str();
 }
 
+/**
+ * @brief Prints one voltage sample to stdout for debugging.
+ * @param[in] batch Pointer to the voltage batch in volts (V).
+ */
 void print_voltage_sample(const bms::VoltageBatch *batch)
 {
     std::cout << "[Voltage] Device " << static_cast<int>(batch->device_id)
@@ -81,6 +101,10 @@ void print_voltage_sample(const bms::VoltageBatch *batch)
     std::cout << std::endl;
 }
 
+/**
+ * @brief Prints one temperature sample to stdout for debugging.
+ * @param[in] batch Pointer to the temperature batch in degrees Celsius (°C).
+ */
 void print_temperature_sample(const bms::TemperatureBatch *batch)
 {
     std::cout << "[Temp] Seq " << batch->seq
@@ -105,6 +129,10 @@ void print_temperature_sample(const bms::TemperatureBatch *batch)
     std::cout << std::endl;
 }
 
+/**
+ * @brief Loads InfluxDB authentication token from config/influxdb3/token.json.
+ * @return Token string, or an empty string if unavailable/invalid.
+ */
 std::string get_token()
 {
     try
@@ -129,6 +157,10 @@ std::string get_token()
 // Main
 // ========================================================================
 
+/**
+ * @brief Runs the BMS logger lifecycle: setup, periodic acquisition, persistence and shutdown.
+ * @return Exit code 0 on graceful termination, non-zero on fatal startup/runtime errors.
+ */
 int main()
 {
     // 1. Setup Signal Handling
