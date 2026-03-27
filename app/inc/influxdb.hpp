@@ -1,3 +1,11 @@
+/**
+ * @file        influxdb.hpp
+ * @author      Luis Maciel (luishrm@ufmg.br)
+ * @brief       Header file for the BMS data-logger module.
+ * @version     0.0.1
+ * @date        2026-03-25
+ */
+
 #pragma once
 
 #include "batch_pool.hpp"
