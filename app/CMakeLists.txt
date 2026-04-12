@@ -8,6 +8,9 @@ add_executable(${BMS_EXEC_NAME}
     src/main.cpp
     src/influxdb.cpp
     src/modbus_reader.cpp
+    src/db_consumer.cpp
+    src/soc.cpp
+    src/soh.cpp
 )
 
 # Add include directories needed for this target (e.g., generated config headers)
