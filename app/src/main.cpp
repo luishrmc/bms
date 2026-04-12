@@ -17,6 +17,10 @@
 #include "batch_pool.hpp"
 #include "batch_structures.hpp"
 
+#include "db_consumer.hpp"
+#include "soc.hpp"
+#include "soh.hpp"
+
 #include <nlohmann/json.hpp>
 #include <fstream>
 
@@ -181,11 +185,15 @@ int main()
     std::cout << "  Voltage pool: " << voltage_pool.preallocated() << " batches" << std::endl;
     std::cout << "  Temperature pool: " << temperature_pool.preallocated() << " batches" << std::endl;
 
+    std::cout << "\n[Main] Creating downstream DB consumer pools..." << std::endl;
+    bms::TelemetryRowPool telemetry_row_pool(256);
+    std::cout << "  Telemetry Row pool: " << telemetry_row_pool.preallocated() << " batches" << std::endl;
+
     // ========================================================================
     // 3. Create Queues
     // ========================================================================
 
-    std::cout << "[Main] Creating queues..." << std::endl;
+    std::cout << "\n[Main] Creating queues..." << std::endl;
 
     // Use InfluxDBTask's type aliases
     using VoltageQueue = bms::InfluxDBTask::VoltageQueue;
@@ -202,6 +210,12 @@ int main()
 
     std::cout << "  Voltage queue capacity: 64" << std::endl;
     std::cout << "  Temperature queue capacity: 64" << std::endl;
+
+    bms::TelemetryRowQueue soc_queue(128, bms::TelemetryRowPool::Deleter(telemetry_row_pool.disposer()));
+    bms::TelemetryRowQueue soh_queue(128, bms::TelemetryRowPool::Deleter(telemetry_row_pool.disposer()));
+
+    std::cout << "  SoC queue capacity: 128" << std::endl;
+    std::cout << "  SoH queue capacity: 128" << std::endl;
 
     // ========================================================================
     // 4. Configure Voltage Acquisition
@@ -356,6 +370,17 @@ int main()
             std::cout << "  ✓ Temperature device connected" << std::endl;
         }
 
+        std::cout << "\n[Main] Creating SoC/SoH pipeline..." << std::endl;
+
+        bms::DbConsumerConfig db_consumer_cfg;
+        db_consumer_cfg.base_url = db_cfg.base_url;
+        db_consumer_cfg.database = db_cfg.database;
+        db_consumer_cfg.token = db_cfg.token;
+
+        bms::DatabaseConsumerTask db_consumer_task(db_consumer_cfg, telemetry_row_pool, soc_queue, soh_queue);
+        bms::SoCTask soc_task(soc_queue, telemetry_row_pool);
+        bms::SoHTask soh_task(soh_queue, telemetry_row_pool);
+
         // ========================================================================
         // 10. Create Periodic Tasks
         // ========================================================================
@@ -373,6 +398,18 @@ int main()
         bms::PeriodicTask influxdb_task(
             boost::chrono::milliseconds(50), // 20 Hz
             std::ref(influx_task));
+
+        bms::PeriodicTask db_consumer_periodic_task(
+            boost::chrono::milliseconds(1000), // 1 Hz
+            std::ref(db_consumer_task));
+
+        bms::PeriodicTask soc_periodic_task(
+            boost::chrono::milliseconds(100), // 10 Hz
+            std::ref(soc_task));
+
+        bms::PeriodicTask soh_periodic_task(
+            boost::chrono::milliseconds(100), // 10 Hz
+            std::ref(soh_task));
 
         // ========================================================================
         // 11. Optional: Console Monitor (samples every 5s for visibility)
@@ -407,6 +444,10 @@ int main()
         temperature_task.start();
         influxdb_task.start();
         monitor_task.start();
+
+        db_consumer_periodic_task.start();
+        soc_periodic_task.start();
+        soh_periodic_task.start();
 
         // ========================================================================
         // 13. Main Loop with Diagnostics
@@ -448,6 +489,19 @@ int main()
                     std::cout << "  Last error: " << influx_task.last_error() << std::endl;
                 }
 
+                std::cout << "\nDB Consumer Pipeline:" << std::endl;
+                std::cout << "  DB Rows fetched: " << db_consumer_task.total_rows_fetched()
+                          << " (failures: " << db_consumer_task.total_query_failures()
+                          << ", dupes skipped: " << db_consumer_task.total_duplicates_skipped() << ")" << std::endl;
+                std::cout << "  SoC rows processed: " << soc_task.total_rows_processed()
+                          << " (out-of-order: " << soc_task.total_out_of_order()
+                          << ", failures: " << soc_task.total_processing_failures()
+                          << ", latency: " << soc_task.last_latency_ms() << "ms)" << std::endl;
+                std::cout << "  SoH rows processed: " << soh_task.total_rows_processed()
+                          << " (out-of-order: " << soh_task.total_out_of_order()
+                          << ", failures: " << soh_task.total_processing_failures()
+                          << ", latency: " << soh_task.last_latency_ms() << "ms)" << std::endl;
+
                 std::cout << "\nQueues:" << std::endl;
                 std::cout << "  Voltage queue size: " << voltage_queue.approximate_size()
                           << " (dropped: " << voltage_queue.dropped_count() << ")" << std::endl;
@@ -481,17 +535,25 @@ int main()
         temperature_task.stop();
         influxdb_task.stop();
         monitor_task.stop();
+        db_consumer_periodic_task.stop();
+        soc_periodic_task.stop();
+        soh_periodic_task.stop();
 
         std::cout << "[Main] Joining threads..." << std::endl;
         voltage_task.join();
         temperature_task.join();
         influxdb_task.join();
         monitor_task.join();
+        db_consumer_periodic_task.join();
+        soc_periodic_task.join();
+        soh_periodic_task.join();
         std::cout << "  ✓ All threads stopped" << std::endl;
 
         std::cout << "[Main] Closing queues..." << std::endl;
         voltage_queue.close();
         temperature_queue.close();
+        soc_queue.close();
+        soh_queue.close();
 
         std::cout << "[Main] Disconnecting MODBUS devices..." << std::endl;
         voltage_producer.disconnect();
