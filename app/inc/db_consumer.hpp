@@ -15,8 +15,8 @@
 
 #include <chrono>
 #include <cstdint>
-#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace bms
@@ -40,9 +40,47 @@ namespace bms
     };
 
     /**
-     * @brief Shared immutable telemetry frame used for DB -> SoC/SoH fan-out.
+     * @brief Shared fan-out frame for exactly-two-consumer (SoC + SoH) handoff.
+     *
+     * The payload is immutable after publication; consumers only observe @ref row
+     * and release their queue reference via @ref release.
      */
-    using SharedTelemetryRow = std::shared_ptr<const TelemetryRow>;
+    struct TelemetryFanoutFrame final
+    {
+        explicit TelemetryFanoutFrame(TelemetryRow sample)
+            : row(std::move(sample))
+        {
+        }
+
+        void retain() noexcept
+        {
+            ref_count.fetch_add(1, boost::memory_order_relaxed);
+        }
+
+        void release() noexcept
+        {
+            if (ref_count.fetch_sub(1, boost::memory_order_acq_rel) == 1)
+            {
+                delete this;
+            }
+        }
+
+        const TelemetryRow row;
+
+    private:
+        boost::atomic<std::uint32_t> ref_count{0};
+    };
+
+    struct TelemetryFanoutFrameDisposer final
+    {
+        void operator()(TelemetryFanoutFrame *frame) const noexcept
+        {
+            if (frame)
+            {
+                frame->release();
+            }
+        }
+    };
 
     /**
      * @brief Result of one database query poll.
@@ -112,7 +150,7 @@ namespace bms
     class DBConsumerTask final
     {
     public:
-        using RowQueue = SafeQueue<SharedTelemetryRow>;
+        using RowQueue = SafeQueue<TelemetryFanoutFrame, TelemetryFanoutFrameDisposer>;
 
         DBConsumerTask(
             DBConsumerConfig cfg,

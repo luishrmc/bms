@@ -312,33 +312,37 @@ namespace bms
 
     bool DBConsumerTask::publish_to_both_(const TelemetryRow &row)
     {
-        auto shared_row = std::make_shared<const TelemetryRow>(row);
-        auto *soc_row = new SharedTelemetryRow(shared_row);
-        auto *soh_row = new SharedTelemetryRow(shared_row);
+        auto *frame = new TelemetryFanoutFrame(row);
 
-        if (!soc_queue_.push(soc_row))
+        frame->retain();
+        if (!soc_queue_.push(frame))
         {
-            delete soc_row;
-            delete soh_row;
+            frame->release();
             std::cerr << "[DBConsumer] Failed to enqueue row for SoC pipeline." << std::endl;
             return false;
         }
 
-        if (!soh_queue_.push(soh_row))
+        frame->retain();
+        if (!soh_queue_.push(frame))
         {
-            SharedTelemetryRow *rollback = nullptr;
+            frame->release();
+            TelemetryFanoutFrame *rollback = nullptr;
             if (soc_queue_.try_pop(rollback))
             {
-                if (rollback && *rollback && (*rollback)->cursor == row.cursor)
+                if (rollback && rollback == frame)
                 {
-                    delete rollback;
+                    soc_queue_.dispose(rollback);
                 }
-                else if (rollback && !soc_queue_.push(rollback))
+                else if (rollback)
                 {
-                    delete rollback;
+                    rollback->retain();
+                    if (!soc_queue_.push(rollback))
+                    {
+                        rollback->release();
+                    }
+                    soc_queue_.dispose(rollback);
                 }
             }
-            delete soh_row;
             std::cerr << "[DBConsumer] Failed to enqueue row for SoH pipeline." << std::endl;
             return false;
         }

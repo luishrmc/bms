@@ -21,21 +21,20 @@ namespace bms
 
     void SoCTask::operator()()
     {
-        SharedTelemetryRow *row = nullptr;
-        while (input_queue_.try_pop(row))
+        TelemetryFanoutFrame *frame = nullptr;
+        while (input_queue_.try_pop(frame))
         {
-            if (!row || !(*row))
+            if (!frame)
             {
-                delete row;
                 continue;
             }
 
-            const TelemetryRow &sample = *(*row);
+            const TelemetryRow &sample = frame->row;
 
             if (sample.cursor < expected_cursor_)
             {
                 diag_.duplicates_skipped.fetch_add(1);
-                delete row;
+                input_queue_.dispose(frame);
                 continue;
             }
 
@@ -50,7 +49,7 @@ namespace bms
             if (!process_row(sample))
             {
                 diag_.processing_failures.fetch_add(1);
-                delete row;
+                input_queue_.dispose(frame);
                 continue;
             }
 
@@ -64,7 +63,7 @@ namespace bms
             diag_.last_latency_ms.store(latency);
 
             expected_cursor_ = sample.cursor + 1;
-            delete row;
+            input_queue_.dispose(frame);
         }
     }
 
