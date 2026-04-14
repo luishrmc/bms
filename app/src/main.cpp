@@ -223,7 +223,9 @@ int main()
     v_cfg.device1.host = "192.168.7.2";
     v_cfg.device1.port = 502;
     v_cfg.device1.unit_id = 1;
-    v_cfg.device1.response_timeout_sec = 2;
+    // Bound response timeout to acquisition cadence (voltage task runs at 100 ms).
+    v_cfg.device1.response_timeout_sec = 0;
+    v_cfg.device1.response_timeout_usec = 30000; // 30 ms
     v_cfg.device1.connect_retries = 3;
     v_cfg.device1.read_retries = 2;
 
@@ -231,7 +233,8 @@ int main()
     v_cfg.device2.host = "192.168.7.200";
     v_cfg.device2.port = 502;
     v_cfg.device2.unit_id = 2;
-    v_cfg.device2.response_timeout_sec = 2;
+    v_cfg.device2.response_timeout_sec = 0;
+    v_cfg.device2.response_timeout_usec = 30000; // 30 ms
     v_cfg.device2.connect_retries = 3;
     v_cfg.device2.read_retries = 2;
 
@@ -251,7 +254,9 @@ int main()
     t_cfg.device.host = "192.168.7.20";
     t_cfg.device.port = 502;
     t_cfg.device.unit_id = 1;
-    t_cfg.device.response_timeout_sec = 2;
+    // Bound response timeout to acquisition cadence (temperature task runs at 1000 ms).
+    t_cfg.device.response_timeout_sec = 0;
+    t_cfg.device.response_timeout_usec = 250000; // 250 ms
     t_cfg.device.connect_retries = 3;
     t_cfg.device.read_retries = 2;
 
@@ -280,6 +285,7 @@ int main()
 
     db_cfg.max_lines_per_post = 2048;
     db_cfg.max_bytes_per_post = 512 * 1024;
+    db_cfg.max_buffer_age = boost::chrono::milliseconds(250);
 
     db_cfg.max_retries = 3;
     db_cfg.retry_delay = boost::chrono::milliseconds(100);
@@ -293,6 +299,9 @@ int main()
     std::cout << "  Database: " << db_cfg.database << std::endl;
     std::cout << "  Tables: " << db_cfg.voltage1_table << ", "
               << db_cfg.voltage2_table << ", " << db_cfg.temperature_table << std::endl;
+    std::cout << "  Batching: " << db_cfg.max_lines_per_post << " lines / "
+              << db_cfg.max_bytes_per_post << " bytes / "
+              << db_cfg.max_buffer_age.count() << " ms" << std::endl;
 
     std::cout << "\n[Main] Configuring DB consumer pipeline..." << std::endl;
     bms::DBConsumerConfig db_consumer_cfg;
