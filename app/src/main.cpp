@@ -17,6 +17,7 @@
 #include "batch_pool.hpp"
 #include "batch_structures.hpp"
 #include "db_consumer.hpp"
+#include "normalizer.hpp"
 #include "soc.hpp"
 #include "soh.hpp"
 
@@ -203,8 +204,18 @@ int main()
         64,
         bms::TemperatureBatchPool::Deleter(temperature_pool.disposer()));
 
+    VoltageQueue voltage_normalizer_queue(
+        64,
+        bms::VoltageBatchPool::Deleter(voltage_pool.disposer()));
+
+    TemperatureQueue temperature_normalizer_queue(
+        64,
+        bms::TemperatureBatchPool::Deleter(temperature_pool.disposer()));
+
     std::cout << "  Voltage queue capacity: 64" << std::endl;
     std::cout << "  Temperature queue capacity: 64" << std::endl;
+    std::cout << "  Voltage->Normalizer queue capacity: 64" << std::endl;
+    std::cout << "  Temperature->Normalizer queue capacity: 64" << std::endl;
 
     using RowQueue = bms::DBConsumerTask::RowQueue;
     RowQueue soc_queue(512);
@@ -303,29 +314,14 @@ int main()
               << db_cfg.max_bytes_per_post << " bytes / "
               << db_cfg.max_buffer_age.count() << " ms" << std::endl;
 
-    std::cout << "\n[Main] Configuring DB consumer pipeline..." << std::endl;
-    bms::DBConsumerConfig db_consumer_cfg;
-    db_consumer_cfg.polling_interval = boost::chrono::milliseconds(250);
-    db_consumer_cfg.empty_poll_backoff = boost::chrono::milliseconds(500);
-    db_consumer_cfg.query_limit = 256;
-    db_consumer_cfg.ordering_field = "cursor";
-    db_consumer_cfg.max_retries = 2;
-    db_consumer_cfg.retry_delay = boost::chrono::milliseconds(100);
-    db_consumer_cfg.initial_cursor = 0;
-
-    bms::InfluxQueryConfig influx_query_cfg;
-    influx_query_cfg.base_url = db_cfg.base_url;
-    influx_query_cfg.database = db_cfg.database;
-    influx_query_cfg.token = db_cfg.token;
-    influx_query_cfg.table = "processed_telemetry";
-    influx_query_cfg.cursor_column = db_consumer_cfg.ordering_field;
-    influx_query_cfg.request_timeout = boost::chrono::milliseconds(3000);
-    influx_query_cfg.connect_timeout = boost::chrono::milliseconds(1000);
+    bms::NormalizerConfig normalizer_cfg;
+    normalizer_cfg.initial_cursor = 0;
+    normalizer_cfg.default_current_a = 0.0F;
 
     bms::SoCTaskConfig soc_cfg;
-    soc_cfg.initial_expected_cursor = db_consumer_cfg.initial_cursor + 1;
+    soc_cfg.initial_expected_cursor = normalizer_cfg.initial_cursor + 1;
     bms::SoHTaskConfig soh_cfg;
-    soh_cfg.initial_expected_cursor = db_consumer_cfg.initial_cursor + 1;
+    soh_cfg.initial_expected_cursor = normalizer_cfg.initial_cursor + 1;
 
     // ========================================================================
     // 7. Create Acquisition Instances
@@ -333,10 +329,10 @@ int main()
 
     std::cout << "\n[Main] Creating acquisition instances..." << std::endl;
 
-    bms::VoltageAcquisition voltage_producer(v_cfg, voltage_pool, voltage_queue);
+    bms::VoltageAcquisition voltage_producer(v_cfg, voltage_pool, voltage_queue, voltage_normalizer_queue);
 
     bms::TemperatureAcquisition<TemperatureQueue> temperature_producer(
-        t_cfg, temperature_pool, temperature_queue);
+        t_cfg, temperature_pool, temperature_queue, temperature_normalizer_queue);
 
     // ========================================================================
     // 8. Create InfluxDB Client and Task
@@ -368,10 +364,10 @@ int main()
             voltage_queue,
             temperature_queue);
 
-        bms::InfluxTelemetryQueryBackend query_backend(influx_query_cfg);
-        bms::DBConsumerTask db_consumer_task(
-            db_consumer_cfg,
-            query_backend,
+        bms::NormalizerTask normalizer_task_worker(
+            normalizer_cfg,
+            voltage_normalizer_queue,
+            temperature_normalizer_queue,
             soc_queue,
             soh_queue);
         bms::SoCTask soc_task_worker(soc_cfg, soc_queue);
@@ -425,9 +421,9 @@ int main()
             boost::chrono::milliseconds(50), // 20 Hz
             std::ref(influx_task));
 
-        bms::PeriodicTask db_reader_task(
-            db_consumer_cfg.polling_interval,
-            std::ref(db_consumer_task));
+        bms::PeriodicTask normalizer_task(
+            boost::chrono::milliseconds(20),
+            std::ref(normalizer_task_worker));
 
         bms::PeriodicTask soc_task(
             boost::chrono::milliseconds(20),
@@ -469,7 +465,7 @@ int main()
         voltage_task.start();
         temperature_task.start();
         influxdb_task.start();
-        db_reader_task.start();
+        normalizer_task.start();
         soc_task.start();
         soh_task.start();
         monitor_task.start();
@@ -491,6 +487,8 @@ int main()
                 std::cout << "\nVoltage Acquisition:" << std::endl;
                 std::cout << "  Published: " << voltage_producer.total_published() << std::endl;
                 std::cout << "  Dropped: " << voltage_producer.total_dropped() << std::endl;
+                std::cout << "  Secondary published: " << voltage_producer.secondary_total_published() << std::endl;
+                std::cout << "  Secondary dropped: " << voltage_producer.secondary_total_dropped() << std::endl;
                 std::cout << "  Device 1 reads: " << voltage_producer.device1_status().successful_reads
                           << " (failures: " << voltage_producer.device1_status().read_failures << ")" << std::endl;
                 std::cout << "  Device 2 reads: " << voltage_producer.device2_status().successful_reads
@@ -499,6 +497,8 @@ int main()
                 std::cout << "\nTemperature Acquisition:" << std::endl;
                 std::cout << "  Published: " << temperature_producer.total_published() << std::endl;
                 std::cout << "  Dropped: " << temperature_producer.total_dropped() << std::endl;
+                std::cout << "  Secondary published: " << temperature_producer.secondary_total_published() << std::endl;
+                std::cout << "  Secondary dropped: " << temperature_producer.secondary_total_dropped() << std::endl;
                 std::cout << "  Reads: " << temperature_producer.device_status().successful_reads
                           << " (failures: " << temperature_producer.device_status().read_failures << ")" << std::endl;
 
@@ -523,6 +523,12 @@ int main()
                 std::cout << "  Temperature queue size: " << temperature_queue.approximate_size()
                           << " (peak: " << temperature_queue.peak_size()
                           << ", dropped: " << temperature_queue.dropped_count() << ")" << std::endl;
+                std::cout << "  Voltage->Normalizer queue size: " << voltage_normalizer_queue.approximate_size()
+                          << " (peak: " << voltage_normalizer_queue.peak_size()
+                          << ", dropped: " << voltage_normalizer_queue.dropped_count() << ")" << std::endl;
+                std::cout << "  Temperature->Normalizer queue size: " << temperature_normalizer_queue.approximate_size()
+                          << " (peak: " << temperature_normalizer_queue.peak_size()
+                          << ", dropped: " << temperature_normalizer_queue.dropped_count() << ")" << std::endl;
                 std::cout << "  SoC queue size: " << soc_queue.approximate_size()
                           << " (peak: " << soc_queue.peak_size()
                           << ", dropped: " << soc_queue.dropped_count() << ")" << std::endl;
@@ -530,14 +536,15 @@ int main()
                           << " (peak: " << soh_queue.peak_size()
                           << ", dropped: " << soh_queue.dropped_count() << ")" << std::endl;
 
-                std::cout << "\nDB Consumer Pipeline:" << std::endl;
-                std::cout << "  Rows fetched: " << db_consumer_task.diagnostics().total_rows_fetched.load() << std::endl;
-                std::cout << "  Duplicates skipped: " << db_consumer_task.diagnostics().duplicates_skipped.load() << std::endl;
-                std::cout << "  Out-of-order rows: " << db_consumer_task.diagnostics().out_of_order_rows.load() << std::endl;
-                std::cout << "  Query failures: " << db_consumer_task.diagnostics().query_failures.load() << std::endl;
-                std::cout << "  Fan-out failures: " << db_consumer_task.diagnostics().fanout_failures.load() << std::endl;
-                std::cout << "  Last cursor: " << db_consumer_task.diagnostics().last_processed_cursor.load() << std::endl;
-                std::cout << "  Last latency (ms): " << db_consumer_task.diagnostics().last_latency_ms.load() << std::endl;
+                std::cout << "\nNormalizer:" << std::endl;
+                std::cout << "  Voltage batches consumed: " << normalizer_task_worker.diagnostics().voltage_batches_consumed.load() << std::endl;
+                std::cout << "  Temperature batches consumed: " << normalizer_task_worker.diagnostics().temperature_batches_consumed.load() << std::endl;
+                std::cout << "  Rows published: " << normalizer_task_worker.diagnostics().rows_published.load() << std::endl;
+                std::cout << "  Publish failures: " << normalizer_task_worker.diagnostics().publish_failures.load() << std::endl;
+                std::cout << "  Rows without temperature: " << normalizer_task_worker.diagnostics().rows_without_temperature.load() << std::endl;
+                std::cout << "  Invalid-source rows: " << normalizer_task_worker.diagnostics().invalid_source_rows.load() << std::endl;
+                std::cout << "  Last cursor: " << normalizer_task_worker.diagnostics().last_published_cursor.load() << std::endl;
+                std::cout << "  Last latency (ms): " << normalizer_task_worker.diagnostics().last_latency_ms.load() << std::endl;
 
                 std::cout << "\nSoC Task:" << std::endl;
                 std::cout << "  Processed rows: " << soc_task_worker.diagnostics().rows_processed.load() << std::endl;
@@ -581,7 +588,7 @@ int main()
         voltage_task.stop();
         temperature_task.stop();
         influxdb_task.stop();
-        db_reader_task.stop();
+        normalizer_task.stop();
         soc_task.stop();
         soh_task.stop();
         monitor_task.stop();
@@ -590,7 +597,7 @@ int main()
         voltage_task.join();
         temperature_task.join();
         influxdb_task.join();
-        db_reader_task.join();
+        normalizer_task.join();
         soc_task.join();
         soh_task.join();
         monitor_task.join();
@@ -599,6 +606,8 @@ int main()
         std::cout << "[Main] Closing queues..." << std::endl;
         voltage_queue.close();
         temperature_queue.close();
+        voltage_normalizer_queue.close();
+        temperature_normalizer_queue.close();
         soc_queue.close();
         soh_queue.close();
 
@@ -637,15 +646,15 @@ int main()
         std::cout << "  Failures: " << influx_client.total_failures() << std::endl;
         std::cout << "  Retries: " << influx_client.total_retries() << std::endl;
 
-        std::cout << "\nDB Consumer Pipeline:" << std::endl;
-        std::cout << "  Rows fetched: " << db_consumer_task.diagnostics().total_rows_fetched.load() << std::endl;
-        std::cout << "  Duplicates skipped: " << db_consumer_task.diagnostics().duplicates_skipped.load() << std::endl;
-        std::cout << "  Out-of-order rows: " << db_consumer_task.diagnostics().out_of_order_rows.load() << std::endl;
-        std::cout << "  Missing cursor gaps: " << db_consumer_task.diagnostics().missing_cursor_gaps.load() << std::endl;
-        std::cout << "  Query failures: " << db_consumer_task.diagnostics().query_failures.load() << std::endl;
-        std::cout << "  Fan-out failures: " << db_consumer_task.diagnostics().fanout_failures.load() << std::endl;
-        std::cout << "  Last cursor: " << db_consumer_task.diagnostics().last_processed_cursor.load() << std::endl;
-        std::cout << "  Last latency (ms): " << db_consumer_task.diagnostics().last_latency_ms.load() << std::endl;
+        std::cout << "\nNormalizer:" << std::endl;
+        std::cout << "  Voltage batches consumed: " << normalizer_task_worker.diagnostics().voltage_batches_consumed.load() << std::endl;
+        std::cout << "  Temperature batches consumed: " << normalizer_task_worker.diagnostics().temperature_batches_consumed.load() << std::endl;
+        std::cout << "  Rows published: " << normalizer_task_worker.diagnostics().rows_published.load() << std::endl;
+        std::cout << "  Publish failures: " << normalizer_task_worker.diagnostics().publish_failures.load() << std::endl;
+        std::cout << "  Rows without temperature: " << normalizer_task_worker.diagnostics().rows_without_temperature.load() << std::endl;
+        std::cout << "  Invalid-source rows: " << normalizer_task_worker.diagnostics().invalid_source_rows.load() << std::endl;
+        std::cout << "  Last cursor: " << normalizer_task_worker.diagnostics().last_published_cursor.load() << std::endl;
+        std::cout << "  Last latency (ms): " << normalizer_task_worker.diagnostics().last_latency_ms.load() << std::endl;
 
         std::cout << "\nSoC Task:" << std::endl;
         std::cout << "  Processed rows: " << soc_task_worker.diagnostics().rows_processed.load() << std::endl;
@@ -668,6 +677,14 @@ int main()
                   << ", popped=" << temperature_queue.total_popped()
                   << ", peak=" << temperature_queue.peak_size()
                   << ", dropped=" << temperature_queue.dropped_count() << std::endl;
+        std::cout << "  Voltage->Normalizer: pushed=" << voltage_normalizer_queue.total_pushed()
+                  << ", popped=" << voltage_normalizer_queue.total_popped()
+                  << ", peak=" << voltage_normalizer_queue.peak_size()
+                  << ", dropped=" << voltage_normalizer_queue.dropped_count() << std::endl;
+        std::cout << "  Temperature->Normalizer: pushed=" << temperature_normalizer_queue.total_pushed()
+                  << ", popped=" << temperature_normalizer_queue.total_popped()
+                  << ", peak=" << temperature_normalizer_queue.peak_size()
+                  << ", dropped=" << temperature_normalizer_queue.dropped_count() << std::endl;
         std::cout << "  SoC: pushed=" << soc_queue.total_pushed()
                   << ", popped=" << soc_queue.total_popped()
                   << ", peak=" << soc_queue.peak_size()

@@ -65,6 +65,12 @@ namespace bms
         {
         }
 
+        VoltageAcquisition(VoltageAcquisitionConfig cfg, pool_type &pool, Queue &queue, Queue &secondary_queue)
+            : cfg_(std::move(cfg)), pool_(pool), queue_(queue), secondary_queue_(&secondary_queue),
+              dev1_(cfg_.device1), dev2_(cfg_.device2)
+        {
+        }
+
         // Non-copyable (owns MODBUS clients)
         VoltageAcquisition(const VoltageAcquisition &) = delete;
         VoltageAcquisition &operator=(const VoltageAcquisition &) = delete;
@@ -118,6 +124,16 @@ namespace bms
         std::uint64_t total_dropped() const noexcept
         {
             return dropped_count_;
+        }
+
+        std::uint64_t secondary_total_published() const noexcept
+        {
+            return secondary_published_count_;
+        }
+
+        std::uint64_t secondary_total_dropped() const noexcept
+        {
+            return secondary_dropped_count_;
         }
 
         const VoltageAcquisitionConfig &config() const noexcept
@@ -175,16 +191,42 @@ namespace bms
                 // Otherwise continue to publish with error flags
             }
 
+            pointer secondary_batch = nullptr;
+            if (secondary_queue_ != nullptr)
+            {
+                secondary_batch = pool_.acquire();
+                if (secondary_batch == nullptr)
+                {
+                    secondary_dropped_count_++;
+                }
+                else
+                {
+                    *secondary_batch = *batch;
+                    if (!secondary_queue_->push(secondary_batch))
+                    {
+                        pool_.release(secondary_batch);
+                        secondary_dropped_count_++;
+                    }
+                    else
+                    {
+                        secondary_published_count_++;
+                    }
+                }
+            }
+
             // Publish to queue (transfers ownership)
-            if (!queue_.push(batch))
+            const bool primary_published = queue_.push(batch);
+            if (!primary_published)
             {
                 // Queue full or closed - return to pool
                 pool_.release(batch);
                 dropped_count_++;
-                return;
             }
 
-            published_count_++;
+            if (primary_published)
+            {
+                published_count_++;
+            }
         }
 
         VoltageAcquisitionConfig cfg_;
@@ -192,6 +234,7 @@ namespace bms
         // Shared resources (non-owning references)
         pool_type &pool_;
         Queue &queue_;
+        Queue *secondary_queue_{nullptr};
 
         // MODBUS clients (one per device)
         ModbusTcpClient dev1_;
@@ -204,6 +247,8 @@ namespace bms
         // Diagnostics (modified only by operator() single-thread)
         std::uint64_t published_count_{0};
         std::uint64_t dropped_count_{0};
+        std::uint64_t secondary_published_count_{0};
+        std::uint64_t secondary_dropped_count_{0};
     };
 
 } // namespace bms
