@@ -16,8 +16,9 @@
 #include <boost/chrono.hpp>
 #include <boost/thread/thread.hpp>
 
+#include <charconv>
 #include <cstdint>
-#include <sstream>
+#include <cstdio>
 #include <string>
 
 namespace bms
@@ -202,6 +203,58 @@ namespace bms
             return out;
         }
 
+        static void append_unsigned_(std::string &out, std::size_t value)
+        {
+            char buf[32];
+            const auto result = std::to_chars(buf, buf + sizeof(buf), value);
+            if (result.ec == std::errc())
+            {
+                out.append(buf, static_cast<std::size_t>(result.ptr - buf));
+                return;
+            }
+            out += std::to_string(value);
+        }
+
+        static void append_int64_(std::string &out, std::int64_t value)
+        {
+            char buf[32];
+            const auto result = std::to_chars(buf, buf + sizeof(buf), value);
+            if (result.ec == std::errc())
+            {
+                out.append(buf, static_cast<std::size_t>(result.ptr - buf));
+                return;
+            }
+            out += std::to_string(value);
+        }
+
+        static void append_float_fixed_(std::string &out, double value, int precision)
+        {
+            char buf[64];
+            const auto result = std::to_chars(
+                buf,
+                buf + sizeof(buf),
+                value,
+                std::chars_format::fixed,
+                precision);
+
+            if (result.ec == std::errc())
+            {
+                out.append(buf, static_cast<std::size_t>(result.ptr - buf));
+                return;
+            }
+
+            // Toolchain fallback for floating-point to_chars limitations.
+            const int count = std::snprintf(buf, sizeof(buf), "%.*f", precision, value);
+            if (count > 0)
+            {
+                const std::size_t len = static_cast<std::size_t>(count);
+                out.append(buf, (len < sizeof(buf)) ? len : sizeof(buf) - 1);
+                return;
+            }
+
+            out += "0.0";
+        }
+
         InfluxDBConfig cfg_;
         InfluxHTTPClient &client_;
 
@@ -334,18 +387,13 @@ namespace bms
                 buffer_ += ",";
 
             buffer_ += "ch";
-            buffer_ += std::to_string(i);
+            append_unsigned_(buffer_, i);
             buffer_ += "=";
-
-            std::ostringstream oss;
-            oss.setf(std::ios::fixed);
-            oss.precision(cfg_.voltage_precision);
-            oss << b.voltages[i];
-            buffer_ += oss.str();
+            append_float_fixed_(buffer_, b.voltages[i], cfg_.voltage_precision);
         }
 
         buffer_ += " ";
-        buffer_ += std::to_string(ts_ns);
+        append_int64_(buffer_, ts_ns);
         buffer_ += "\n";
 
         ++buffered_lines_;
@@ -366,18 +414,13 @@ namespace bms
                 buffer_ += ",";
 
             buffer_ += "sensor";
-            buffer_ += std::to_string(i);
+            append_unsigned_(buffer_, i);
             buffer_ += "=";
-
-            std::ostringstream oss;
-            oss.setf(std::ios::fixed);
-            oss.precision(cfg_.temperature_precision);
-            oss << b.temperatures[i];
-            buffer_ += oss.str();
+            append_float_fixed_(buffer_, b.temperatures[i], cfg_.temperature_precision);
         }
 
         buffer_ += " ";
-        buffer_ += std::to_string(ts_ns);
+        append_int64_(buffer_, ts_ns);
         buffer_ += "\n";
 
         ++buffered_lines_;
