@@ -220,8 +220,10 @@ int main()
     using RowQueue = bms::DBConsumerTask::RowQueue;
     RowQueue soc_queue(512);
     RowQueue soh_queue(512);
+    RowQueue normalized_persistence_queue(512);
     std::cout << "  SoC queue capacity: 512" << std::endl;
     std::cout << "  SoH queue capacity: 512" << std::endl;
+    std::cout << "  Normalized persistence queue capacity: 512" << std::endl;
 
     // ========================================================================
     // 4. Configure Voltage Acquisition
@@ -369,7 +371,12 @@ int main()
             voltage_normalizer_queue,
             temperature_normalizer_queue,
             soc_queue,
-            soh_queue);
+            soh_queue,
+            normalized_persistence_queue);
+        bms::ProcessedTelemetryWriterTask processed_telemetry_writer(
+            db_cfg,
+            influx_client,
+            normalized_persistence_queue);
         bms::SoCTask soc_task_worker(soc_cfg, soc_queue);
         bms::SoHTask soh_task_worker(soh_cfg, soh_queue);
 
@@ -425,6 +432,10 @@ int main()
             boost::chrono::milliseconds(20),
             std::ref(normalizer_task_worker));
 
+        bms::PeriodicTask processed_telemetry_task(
+            boost::chrono::milliseconds(50),
+            std::ref(processed_telemetry_writer));
+
         bms::PeriodicTask soc_task(
             boost::chrono::milliseconds(20),
             std::ref(soc_task_worker));
@@ -466,6 +477,7 @@ int main()
         temperature_task.start();
         influxdb_task.start();
         normalizer_task.start();
+        processed_telemetry_task.start();
         soc_task.start();
         soh_task.start();
         monitor_task.start();
@@ -535,6 +547,9 @@ int main()
                 std::cout << "  SoH queue size: " << soh_queue.approximate_size()
                           << " (peak: " << soh_queue.peak_size()
                           << ", dropped: " << soh_queue.dropped_count() << ")" << std::endl;
+                std::cout << "  Normalized persistence queue size: " << normalized_persistence_queue.approximate_size()
+                          << " (peak: " << normalized_persistence_queue.peak_size()
+                          << ", dropped: " << normalized_persistence_queue.dropped_count() << ")" << std::endl;
 
                 std::cout << "\nNormalizer:" << std::endl;
                 std::cout << "  Voltage batches consumed: " << normalizer_task_worker.diagnostics().voltage_batches_consumed.load() << std::endl;
@@ -545,6 +560,15 @@ int main()
                 std::cout << "  Invalid-source rows: " << normalizer_task_worker.diagnostics().invalid_source_rows.load() << std::endl;
                 std::cout << "  Last cursor: " << normalizer_task_worker.diagnostics().last_published_cursor.load() << std::endl;
                 std::cout << "  Last latency (ms): " << normalizer_task_worker.diagnostics().last_latency_ms.load() << std::endl;
+                std::cout << "\nProcessed Telemetry Writer:" << std::endl;
+                std::cout << "  HTTP posts: " << processed_telemetry_writer.total_posts()
+                          << " (failures: " << processed_telemetry_writer.total_post_failures() << ")" << std::endl;
+                std::cout << "  Rows written: " << processed_telemetry_writer.diagnostics().rows_written.load() << std::endl;
+                std::cout << "  Write failures: " << processed_telemetry_writer.diagnostics().write_failures.load() << std::endl;
+                if (!processed_telemetry_writer.last_error().empty())
+                {
+                    std::cout << "  Last error: " << processed_telemetry_writer.last_error() << std::endl;
+                }
 
                 std::cout << "\nSoC Task:" << std::endl;
                 std::cout << "  Processed rows: " << soc_task_worker.diagnostics().rows_processed.load() << std::endl;
@@ -589,6 +613,7 @@ int main()
         temperature_task.stop();
         influxdb_task.stop();
         normalizer_task.stop();
+        processed_telemetry_task.stop();
         soc_task.stop();
         soh_task.stop();
         monitor_task.stop();
@@ -598,6 +623,7 @@ int main()
         temperature_task.join();
         influxdb_task.join();
         normalizer_task.join();
+        processed_telemetry_task.join();
         soc_task.join();
         soh_task.join();
         monitor_task.join();
@@ -610,6 +636,7 @@ int main()
         temperature_normalizer_queue.close();
         soc_queue.close();
         soh_queue.close();
+        normalized_persistence_queue.close();
 
         std::cout << "[Main] Disconnecting MODBUS devices..." << std::endl;
         voltage_producer.disconnect();
@@ -655,6 +682,11 @@ int main()
         std::cout << "  Invalid-source rows: " << normalizer_task_worker.diagnostics().invalid_source_rows.load() << std::endl;
         std::cout << "  Last cursor: " << normalizer_task_worker.diagnostics().last_published_cursor.load() << std::endl;
         std::cout << "  Last latency (ms): " << normalizer_task_worker.diagnostics().last_latency_ms.load() << std::endl;
+        std::cout << "\nProcessed Telemetry Writer:" << std::endl;
+        std::cout << "  HTTP posts: " << processed_telemetry_writer.total_posts() << std::endl;
+        std::cout << "  HTTP failures: " << processed_telemetry_writer.total_post_failures() << std::endl;
+        std::cout << "  Rows written: " << processed_telemetry_writer.diagnostics().rows_written.load() << std::endl;
+        std::cout << "  Write failures: " << processed_telemetry_writer.diagnostics().write_failures.load() << std::endl;
 
         std::cout << "\nSoC Task:" << std::endl;
         std::cout << "  Processed rows: " << soc_task_worker.diagnostics().rows_processed.load() << std::endl;
@@ -693,6 +725,10 @@ int main()
                   << ", popped=" << soh_queue.total_popped()
                   << ", peak=" << soh_queue.peak_size()
                   << ", dropped=" << soh_queue.dropped_count() << std::endl;
+        std::cout << "  NormalizedPersistence: pushed=" << normalized_persistence_queue.total_pushed()
+                  << ", popped=" << normalized_persistence_queue.total_popped()
+                  << ", peak=" << normalized_persistence_queue.peak_size()
+                  << ", dropped=" << normalized_persistence_queue.dropped_count() << std::endl;
 
         std::cout << "\nMemory Pools:" << std::endl;
         std::cout << "  Voltage: acquired=" << voltage_pool.total_acquired()
