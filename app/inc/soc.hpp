@@ -45,7 +45,7 @@ namespace bms
     class SoCTask final
     {
     public:
-        using RowQueue = SafeQueue<TelemetryRow>;
+        using RowQueue = DBConsumerTask::RowQueue;
 
         SoCTask(SoCTaskConfig cfg, RowQueue &input_queue);
 

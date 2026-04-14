@@ -108,7 +108,10 @@ namespace bms
             }
             if (queue_.push(p))
             {
-                pushed_.fetch_add(1, boost::memory_order_relaxed);
+                const std::uint64_t pushed_now = pushed_.fetch_add(1, boost::memory_order_relaxed) + 1;
+                const std::uint64_t popped_now = popped_.load(boost::memory_order_relaxed);
+                const std::uint64_t approx_now = (pushed_now > popped_now) ? (pushed_now - popped_now) : 0;
+                update_peak_size_(approx_now);
                 return true;
             }
             dropped_.fetch_add(1, boost::memory_order_relaxed);
@@ -177,6 +180,11 @@ namespace bms
             return (pu > po) ? (pu - po) : 0;
         }
 
+        std::uint64_t peak_size() const noexcept
+        {
+            return peak_size_.load(boost::memory_order_relaxed);
+        }
+
         /**
          * Convenience disposal hook for callers who want the queue to define
          * the correct disposal policy (delete vs pool release).
@@ -197,6 +205,20 @@ namespace bms
         }
 
     private:
+        void update_peak_size_(std::uint64_t candidate) noexcept
+        {
+            std::uint64_t current_peak = peak_size_.load(boost::memory_order_relaxed);
+            while (candidate > current_peak &&
+                   !peak_size_.compare_exchange_weak(
+                       current_peak,
+                       candidate,
+                       boost::memory_order_relaxed,
+                       boost::memory_order_relaxed))
+            {
+                // retry with refreshed current_peak
+            }
+        }
+
         boost::lockfree::queue<pointer> queue_;
         Disposer disposer_;
         std::size_t capacity_;
@@ -205,6 +227,7 @@ namespace bms
         boost::atomic<std::uint64_t> dropped_{0};
         boost::atomic<std::uint64_t> pushed_{0};
         boost::atomic<std::uint64_t> popped_{0};
+        boost::atomic<std::uint64_t> peak_size_{0};
     };
 
 } // namespace bms

@@ -15,6 +15,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -106,7 +107,8 @@ namespace bms
     class DBConsumerTask final
     {
     public:
-        using RowQueue = SafeQueue<TelemetryRow>;
+        using SharedTelemetryRow = std::shared_ptr<const TelemetryRow>;
+        using RowQueue = SafeQueue<SharedTelemetryRow>;
 
         DBConsumerTask(
             DBConsumerConfig cfg,

@@ -206,7 +206,7 @@ int main()
     std::cout << "  Voltage queue capacity: 64" << std::endl;
     std::cout << "  Temperature queue capacity: 64" << std::endl;
 
-    using RowQueue = bms::SafeQueue<bms::TelemetryRow>;
+    using RowQueue = bms::DBConsumerTask::RowQueue;
     RowQueue soc_queue(512);
     RowQueue soh_queue(512);
     std::cout << "  SoC queue capacity: 512" << std::endl;
@@ -223,7 +223,9 @@ int main()
     v_cfg.device1.host = "192.168.7.2";
     v_cfg.device1.port = 502;
     v_cfg.device1.unit_id = 1;
-    v_cfg.device1.response_timeout_sec = 2;
+    // Bound response timeout to acquisition cadence (voltage task runs at 100 ms).
+    v_cfg.device1.response_timeout_sec = 0;
+    v_cfg.device1.response_timeout_usec = 30000; // 30 ms
     v_cfg.device1.connect_retries = 3;
     v_cfg.device1.read_retries = 2;
 
@@ -231,7 +233,8 @@ int main()
     v_cfg.device2.host = "192.168.7.200";
     v_cfg.device2.port = 502;
     v_cfg.device2.unit_id = 2;
-    v_cfg.device2.response_timeout_sec = 2;
+    v_cfg.device2.response_timeout_sec = 0;
+    v_cfg.device2.response_timeout_usec = 30000; // 30 ms
     v_cfg.device2.connect_retries = 3;
     v_cfg.device2.read_retries = 2;
 
@@ -251,7 +254,9 @@ int main()
     t_cfg.device.host = "192.168.7.20";
     t_cfg.device.port = 502;
     t_cfg.device.unit_id = 1;
-    t_cfg.device.response_timeout_sec = 2;
+    // Bound response timeout to acquisition cadence (temperature task runs at 1000 ms).
+    t_cfg.device.response_timeout_sec = 0;
+    t_cfg.device.response_timeout_usec = 250000; // 250 ms
     t_cfg.device.connect_retries = 3;
     t_cfg.device.read_retries = 2;
 
@@ -280,6 +285,7 @@ int main()
 
     db_cfg.max_lines_per_post = 2048;
     db_cfg.max_bytes_per_post = 512 * 1024;
+    db_cfg.max_buffer_age = boost::chrono::milliseconds(250);
 
     db_cfg.max_retries = 3;
     db_cfg.retry_delay = boost::chrono::milliseconds(100);
@@ -293,6 +299,9 @@ int main()
     std::cout << "  Database: " << db_cfg.database << std::endl;
     std::cout << "  Tables: " << db_cfg.voltage1_table << ", "
               << db_cfg.voltage2_table << ", " << db_cfg.temperature_table << std::endl;
+    std::cout << "  Batching: " << db_cfg.max_lines_per_post << " lines / "
+              << db_cfg.max_bytes_per_post << " bytes / "
+              << db_cfg.max_buffer_age.count() << " ms" << std::endl;
 
     std::cout << "\n[Main] Configuring DB consumer pipeline..." << std::endl;
     bms::DBConsumerConfig db_consumer_cfg;
@@ -496,6 +505,8 @@ int main()
                 std::cout << "\nInfluxDB Writer:" << std::endl;
                 std::cout << "  HTTP posts: " << influx_task.total_posts()
                           << " (failures: " << influx_task.total_post_failures() << ")" << std::endl;
+                std::cout << "  Flushes: threshold=" << influx_task.threshold_flushes()
+                          << ", timer=" << influx_task.timer_flushes() << std::endl;
                 std::cout << "  Voltage samples written: " << influx_task.total_voltage_samples() << std::endl;
                 std::cout << "  Temperature samples written: " << influx_task.total_temperature_samples() << std::endl;
                 std::cout << "  Dropped (flagged): " << influx_task.dropped_flagged_samples() << std::endl;
@@ -507,13 +518,17 @@ int main()
 
                 std::cout << "\nQueues:" << std::endl;
                 std::cout << "  Voltage queue size: " << voltage_queue.approximate_size()
-                          << " (dropped: " << voltage_queue.dropped_count() << ")" << std::endl;
+                          << " (peak: " << voltage_queue.peak_size()
+                          << ", dropped: " << voltage_queue.dropped_count() << ")" << std::endl;
                 std::cout << "  Temperature queue size: " << temperature_queue.approximate_size()
-                          << " (dropped: " << temperature_queue.dropped_count() << ")" << std::endl;
+                          << " (peak: " << temperature_queue.peak_size()
+                          << ", dropped: " << temperature_queue.dropped_count() << ")" << std::endl;
                 std::cout << "  SoC queue size: " << soc_queue.approximate_size()
-                          << " (dropped: " << soc_queue.dropped_count() << ")" << std::endl;
+                          << " (peak: " << soc_queue.peak_size()
+                          << ", dropped: " << soc_queue.dropped_count() << ")" << std::endl;
                 std::cout << "  SoH queue size: " << soh_queue.approximate_size()
-                          << " (dropped: " << soh_queue.dropped_count() << ")" << std::endl;
+                          << " (peak: " << soh_queue.peak_size()
+                          << ", dropped: " << soh_queue.dropped_count() << ")" << std::endl;
 
                 std::cout << "\nDB Consumer Pipeline:" << std::endl;
                 std::cout << "  Rows fetched: " << db_consumer_task.diagnostics().total_rows_fetched.load() << std::endl;
@@ -611,6 +626,8 @@ int main()
         std::cout << "\nInfluxDB Writer:" << std::endl;
         std::cout << "  HTTP posts: " << influx_task.total_posts() << std::endl;
         std::cout << "  HTTP failures: " << influx_task.total_post_failures() << std::endl;
+        std::cout << "  Flushes: threshold=" << influx_task.threshold_flushes()
+                  << ", timer=" << influx_task.timer_flushes() << std::endl;
         std::cout << "  Voltage samples: " << influx_task.total_voltage_samples() << std::endl;
         std::cout << "  Temperature samples: " << influx_task.total_temperature_samples() << std::endl;
         std::cout << "  Dropped (flagged): " << influx_task.dropped_flagged_samples() << std::endl;
@@ -645,15 +662,19 @@ int main()
         std::cout << "\nQueues:" << std::endl;
         std::cout << "  Voltage: pushed=" << voltage_queue.total_pushed()
                   << ", popped=" << voltage_queue.total_popped()
+                  << ", peak=" << voltage_queue.peak_size()
                   << ", dropped=" << voltage_queue.dropped_count() << std::endl;
         std::cout << "  Temperature: pushed=" << temperature_queue.total_pushed()
                   << ", popped=" << temperature_queue.total_popped()
+                  << ", peak=" << temperature_queue.peak_size()
                   << ", dropped=" << temperature_queue.dropped_count() << std::endl;
         std::cout << "  SoC: pushed=" << soc_queue.total_pushed()
                   << ", popped=" << soc_queue.total_popped()
+                  << ", peak=" << soc_queue.peak_size()
                   << ", dropped=" << soc_queue.dropped_count() << std::endl;
         std::cout << "  SoH: pushed=" << soh_queue.total_pushed()
                   << ", popped=" << soh_queue.total_popped()
+                  << ", peak=" << soh_queue.peak_size()
                   << ", dropped=" << soh_queue.dropped_count() << std::endl;
 
         std::cout << "\nMemory Pools:" << std::endl;
