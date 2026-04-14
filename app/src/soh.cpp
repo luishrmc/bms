@@ -21,20 +21,20 @@ namespace bms
 
     void SoHTask::operator()()
     {
-        TelemetryFanoutFrame *frame = nullptr;
-        while (input_queue_.try_pop(frame))
+        TelemetryRow *row = nullptr;
+        while (input_queue_.try_pop(row))
         {
-            if (!frame)
+            if (!row)
             {
                 continue;
             }
 
-            const TelemetryRow &sample = frame->row;
+            const TelemetryRow &sample = *row;
 
             if (sample.cursor < expected_cursor_)
             {
                 diag_.duplicates_skipped.fetch_add(1);
-                input_queue_.dispose(frame);
+                input_queue_.dispose(row);
                 continue;
             }
 
@@ -49,7 +49,7 @@ namespace bms
             if (!process_row(sample))
             {
                 diag_.processing_failures.fetch_add(1);
-                input_queue_.dispose(frame);
+                input_queue_.dispose(row);
                 continue;
             }
 
@@ -63,7 +63,7 @@ namespace bms
             diag_.last_latency_ms.store(latency);
 
             expected_cursor_ = sample.cursor + 1;
-            input_queue_.dispose(frame);
+            input_queue_.dispose(row);
         }
     }
 

@@ -312,35 +312,33 @@ namespace bms
 
     bool DBConsumerTask::publish_to_both_(const TelemetryRow &row)
     {
-        auto *frame = new TelemetryFanoutFrame(row);
+        auto *shared_row = new TelemetryRow(row);
 
-        frame->retain();
-        if (!soc_queue_.push(frame))
+        shared_row->add_ref();
+        if (!soc_queue_.push(shared_row))
         {
-            frame->release();
+            shared_row->release();
             std::cerr << "[DBConsumer] Failed to enqueue row for SoC pipeline." << std::endl;
             return false;
         }
 
-        frame->retain();
-        if (!soh_queue_.push(frame))
+        shared_row->add_ref();
+        if (!soh_queue_.push(shared_row))
         {
-            frame->release();
-            TelemetryFanoutFrame *rollback = nullptr;
+            shared_row->release();
+            TelemetryRow *rollback = nullptr;
             if (soc_queue_.try_pop(rollback))
             {
-                if (rollback && rollback == frame)
+                if (rollback && rollback == shared_row)
                 {
                     soc_queue_.dispose(rollback);
                 }
                 else if (rollback)
                 {
-                    rollback->retain();
                     if (!soc_queue_.push(rollback))
                     {
-                        rollback->release();
+                        soc_queue_.dispose(rollback);
                     }
-                    soc_queue_.dispose(rollback);
                 }
             }
             std::cerr << "[DBConsumer] Failed to enqueue row for SoH pipeline." << std::endl;
