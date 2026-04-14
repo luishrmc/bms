@@ -9,6 +9,7 @@ add_executable(${BMS_EXEC_NAME}
     src/influxdb.cpp
     src/modbus_reader.cpp
     src/db_consumer.cpp
+    src/normalizer.cpp
     src/soc.cpp
     src/soh.cpp
 )
