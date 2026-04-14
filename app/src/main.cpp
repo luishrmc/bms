@@ -505,6 +505,8 @@ int main()
                 std::cout << "\nInfluxDB Writer:" << std::endl;
                 std::cout << "  HTTP posts: " << influx_task.total_posts()
                           << " (failures: " << influx_task.total_post_failures() << ")" << std::endl;
+                std::cout << "  Flushes: threshold=" << influx_task.threshold_flushes()
+                          << ", timer=" << influx_task.timer_flushes() << std::endl;
                 std::cout << "  Voltage samples written: " << influx_task.total_voltage_samples() << std::endl;
                 std::cout << "  Temperature samples written: " << influx_task.total_temperature_samples() << std::endl;
                 std::cout << "  Dropped (flagged): " << influx_task.dropped_flagged_samples() << std::endl;
@@ -516,13 +518,17 @@ int main()
 
                 std::cout << "\nQueues:" << std::endl;
                 std::cout << "  Voltage queue size: " << voltage_queue.approximate_size()
-                          << " (dropped: " << voltage_queue.dropped_count() << ")" << std::endl;
+                          << " (peak: " << voltage_queue.peak_size()
+                          << ", dropped: " << voltage_queue.dropped_count() << ")" << std::endl;
                 std::cout << "  Temperature queue size: " << temperature_queue.approximate_size()
-                          << " (dropped: " << temperature_queue.dropped_count() << ")" << std::endl;
+                          << " (peak: " << temperature_queue.peak_size()
+                          << ", dropped: " << temperature_queue.dropped_count() << ")" << std::endl;
                 std::cout << "  SoC queue size: " << soc_queue.approximate_size()
-                          << " (dropped: " << soc_queue.dropped_count() << ")" << std::endl;
+                          << " (peak: " << soc_queue.peak_size()
+                          << ", dropped: " << soc_queue.dropped_count() << ")" << std::endl;
                 std::cout << "  SoH queue size: " << soh_queue.approximate_size()
-                          << " (dropped: " << soh_queue.dropped_count() << ")" << std::endl;
+                          << " (peak: " << soh_queue.peak_size()
+                          << ", dropped: " << soh_queue.dropped_count() << ")" << std::endl;
 
                 std::cout << "\nDB Consumer Pipeline:" << std::endl;
                 std::cout << "  Rows fetched: " << db_consumer_task.diagnostics().total_rows_fetched.load() << std::endl;
@@ -620,6 +626,8 @@ int main()
         std::cout << "\nInfluxDB Writer:" << std::endl;
         std::cout << "  HTTP posts: " << influx_task.total_posts() << std::endl;
         std::cout << "  HTTP failures: " << influx_task.total_post_failures() << std::endl;
+        std::cout << "  Flushes: threshold=" << influx_task.threshold_flushes()
+                  << ", timer=" << influx_task.timer_flushes() << std::endl;
         std::cout << "  Voltage samples: " << influx_task.total_voltage_samples() << std::endl;
         std::cout << "  Temperature samples: " << influx_task.total_temperature_samples() << std::endl;
         std::cout << "  Dropped (flagged): " << influx_task.dropped_flagged_samples() << std::endl;
@@ -654,15 +662,19 @@ int main()
         std::cout << "\nQueues:" << std::endl;
         std::cout << "  Voltage: pushed=" << voltage_queue.total_pushed()
                   << ", popped=" << voltage_queue.total_popped()
+                  << ", peak=" << voltage_queue.peak_size()
                   << ", dropped=" << voltage_queue.dropped_count() << std::endl;
         std::cout << "  Temperature: pushed=" << temperature_queue.total_pushed()
                   << ", popped=" << temperature_queue.total_popped()
+                  << ", peak=" << temperature_queue.peak_size()
                   << ", dropped=" << temperature_queue.dropped_count() << std::endl;
         std::cout << "  SoC: pushed=" << soc_queue.total_pushed()
                   << ", popped=" << soc_queue.total_popped()
+                  << ", peak=" << soc_queue.peak_size()
                   << ", dropped=" << soc_queue.dropped_count() << std::endl;
         std::cout << "  SoH: pushed=" << soh_queue.total_pushed()
                   << ", popped=" << soh_queue.total_popped()
+                  << ", peak=" << soh_queue.peak_size()
                   << ", dropped=" << soh_queue.dropped_count() << std::endl;
 
         std::cout << "\nMemory Pools:" << std::endl;
