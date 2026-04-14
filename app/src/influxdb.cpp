@@ -249,10 +249,14 @@ ProcessedTelemetryWriterTask::ProcessedTelemetryWriterTask(
     RowQueue &queue)
     : cfg_(std::move(cfg)), client_(client), queue_(queue)
 {
+    buffer_.reserve(16 * 1024);
+    last_flush_time_ = boost::chrono::steady_clock::now();
 }
 
 void ProcessedTelemetryWriterTask::operator()()
 {
+    last_error_.clear();
+
     TelemetryRow *row = nullptr;
     while (queue_.try_pop(row))
     {
@@ -263,10 +267,18 @@ void ProcessedTelemetryWriterTask::operator()()
 
         append_row_line_(*row);
         queue_.dispose(row);
+
+        if (should_flush_threshold_())
+        {
+            diag_.threshold_flushes.fetch_add(1);
+            (void)flush_buffer_();
+        }
     }
 
-    if (buffered_lines_ > 0U)
+    const auto now = boost::chrono::steady_clock::now();
+    if (should_flush_timer_(now))
     {
+        diag_.timer_flushes.fetch_add(1);
         (void)flush_buffer_();
     }
 }
@@ -317,6 +329,11 @@ void ProcessedTelemetryWriterTask::append_row_line_(const TelemetryRow &row)
 
 bool ProcessedTelemetryWriterTask::flush_buffer_()
 {
+    if (buffer_.empty())
+    {
+        return true;
+    }
+
     std::string err;
     if (!client_.write_lp(buffer_, err))
     {
@@ -334,6 +351,7 @@ bool ProcessedTelemetryWriterTask::flush_buffer_()
     buffer_.clear();
     buffered_lines_ = 0;
     buffered_bytes_ = 0;
+    last_flush_time_ = boost::chrono::steady_clock::now();
     return true;
 }
 } // namespace bms

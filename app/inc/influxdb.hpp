@@ -468,6 +468,8 @@ namespace bms
     {
         boost::atomic<std::uint64_t> rows_written{0};
         boost::atomic<std::uint64_t> write_failures{0};
+        boost::atomic<std::uint64_t> threshold_flushes{0};
+        boost::atomic<std::uint64_t> timer_flushes{0};
     };
 
     class ProcessedTelemetryWriterTask final
@@ -496,6 +498,14 @@ namespace bms
 
         void append_row_line_(const TelemetryRow &row);
         bool flush_buffer_();
+        bool should_flush_threshold_() const noexcept
+        {
+            return (buffered_lines_ >= cfg_.max_lines_per_post) || (buffered_bytes_ >= cfg_.max_bytes_per_post);
+        }
+        bool should_flush_timer_(const boost::chrono::steady_clock::time_point &now) const noexcept
+        {
+            return !buffer_.empty() && (now - last_flush_time_ >= cfg_.max_buffer_age);
+        }
 
         static std::int64_t to_influxdb_ns_(const std::chrono::system_clock::time_point &tp) noexcept
         {
@@ -589,6 +599,7 @@ namespace bms
         std::string buffer_;
         std::size_t buffered_lines_{0};
         std::size_t buffered_bytes_{0};
+        boost::chrono::steady_clock::time_point last_flush_time_{};
         std::string last_error_;
 
         ProcessedTelemetryWriterDiagnostics diag_{};
