@@ -13,7 +13,7 @@
 3. **SoCTask / SoHTask (independent consumers)**
    - Run as independent periodic workers.
    - Consume one ordered stream each (single-consumer FIFO semantics from `SafeQueue`).
-   - Perform placeholder `process_row(const TelemetryRow&)` hooks.
+   - Delegate row processing to injectable estimators that consume canonical `TelemetryRow` values.
 
 ## Task responsibilities
 - **InfluxTelemetryQueryBackend**
@@ -25,10 +25,12 @@
   - Publishes only rows accepted by ordering contract.
 - **SoCTask**
   - Dedicated SoC pipeline worker and diagnostics surface.
-  - Contains only scaffold/TODO extension point for future algorithm.
+  - Owns queue consumption, ordering checks, and per-row latency/health diagnostics.
+  - Delegates estimation behavior to `ISoCEstimator` (default: `NoOpSoCEstimator`).
 - **SoHTask**
   - Dedicated SoH pipeline worker and diagnostics surface.
-  - Contains only scaffold/TODO extension point for future algorithm.
+  - Owns queue consumption, ordering checks, and per-row latency/health diagnostics.
+  - Delegates estimation behavior to `ISoHEstimator` (default: `NoOpSoHEstimator`).
 
 ## Ordering guarantees
 - Ordering field is explicit (`DBConsumerConfig::ordering_field`, default `cursor`).
@@ -36,6 +38,7 @@
 - Duplicate or older rows are skipped and counted.
 - Cursor gaps are detected (`expected checkpoint+1`) and logged.
 - SoC and SoH each process rows sequentially in a single thread.
+- Estimators do not own cursor sequencing; they receive already-ordered canonical rows.
 
 ## Debug strategy
 Use periodic and final diagnostics from `main.cpp` to answer:
@@ -45,12 +48,16 @@ Use periodic and final diagnostics from `main.cpp` to answer:
 - query and processing failures
 - latest observed ingestion latency (`last_latency_ms`)
 - queue pressure (`pushed/popped/dropped`)
+- estimator outcome context (`last_estimator_message`, rejection counters)
 
 ## Future algorithm integration
-- Add real estimators only inside:
-  - `SoCTask::process_row(const TelemetryRow&)`
-  - `SoHTask::process_row(const TelemetryRow&)`
+- Implement real algorithms behind interfaces:
+  - `ISoCEstimator::estimate(const TelemetryRow&)`
+  - `ISoHEstimator::estimate(const TelemetryRow&)`
 - Keep `TelemetryRow` stable as canonical input contract.
+- Keep SoC/SoH task ownership boundaries stable:
+  - task = queueing, ordering, diagnostics
+  - estimator = row interpretation/model math
 - Future work can evolve backend independently:
   - checkpoint persistence
   - replay modes
