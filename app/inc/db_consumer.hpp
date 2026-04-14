@@ -40,6 +40,11 @@ namespace bms
     };
 
     /**
+     * @brief Shared immutable telemetry frame used for DB -> SoC/SoH fan-out.
+     */
+    using SharedTelemetryRow = std::shared_ptr<const TelemetryRow>;
+
+    /**
      * @brief Result of one database query poll.
      */
     struct TelemetryQueryResult final
@@ -107,7 +112,6 @@ namespace bms
     class DBConsumerTask final
     {
     public:
-        using SharedTelemetryRow = std::shared_ptr<const TelemetryRow>;
         using RowQueue = SafeQueue<SharedTelemetryRow>;
 
         DBConsumerTask(

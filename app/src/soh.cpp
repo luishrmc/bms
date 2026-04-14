@@ -21,7 +21,7 @@ namespace bms
 
     void SoHTask::operator()()
     {
-        DBConsumerTask::SharedTelemetryRow *row = nullptr;
+        SharedTelemetryRow *row = nullptr;
         while (input_queue_.try_pop(row))
         {
             if (!row || !(*row))
