@@ -21,30 +21,33 @@ namespace bms
 
     void SoCTask::operator()()
     {
-        TelemetryRow *row = nullptr;
+        DBConsumerTask::SharedTelemetryRow *row = nullptr;
         while (input_queue_.try_pop(row))
         {
-            if (!row)
+            if (!row || !(*row))
             {
+                delete row;
                 continue;
             }
 
-            if (row->cursor < expected_cursor_)
+            const TelemetryRow &sample = *(*row);
+
+            if (sample.cursor < expected_cursor_)
             {
                 diag_.duplicates_skipped.fetch_add(1);
                 delete row;
                 continue;
             }
 
-            if (row->cursor > expected_cursor_)
+            if (sample.cursor > expected_cursor_)
             {
                 diag_.out_of_order_rows.fetch_add(1);
                 std::cerr << "[SoC] Out-of-order cursor: expected " << expected_cursor_
-                          << " got " << row->cursor << std::endl;
-                expected_cursor_ = row->cursor;
+                          << " got " << sample.cursor << std::endl;
+                expected_cursor_ = sample.cursor;
             }
 
-            if (!process_row(*row))
+            if (!process_row(sample))
             {
                 diag_.processing_failures.fetch_add(1);
                 delete row;
@@ -52,15 +55,15 @@ namespace bms
             }
 
             diag_.rows_processed.fetch_add(1);
-            diag_.last_processed_cursor.store(row->cursor);
-            diag_.last_status = row->status;
+            diag_.last_processed_cursor.store(sample.cursor);
+            diag_.last_status = sample.status;
 
             const auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     std::chrono::system_clock::now() - row->timestamp)
+                                     std::chrono::system_clock::now() - sample.timestamp)
                                      .count();
             diag_.last_latency_ms.store(latency);
 
-            expected_cursor_ = row->cursor + 1;
+            expected_cursor_ = sample.cursor + 1;
             delete row;
         }
     }

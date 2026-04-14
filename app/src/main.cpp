@@ -206,7 +206,7 @@ int main()
     std::cout << "  Voltage queue capacity: 64" << std::endl;
     std::cout << "  Temperature queue capacity: 64" << std::endl;
 
-    using RowQueue = bms::SafeQueue<bms::TelemetryRow>;
+    using RowQueue = bms::DBConsumerTask::RowQueue;
     RowQueue soc_queue(512);
     RowQueue soh_queue(512);
     std::cout << "  SoC queue capacity: 512" << std::endl;
