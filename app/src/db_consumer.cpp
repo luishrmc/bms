@@ -312,7 +312,7 @@ namespace bms
 
     bool DBConsumerTask::publish_to_both_(const TelemetryRow &row)
     {
-        auto shared_row = std::make_shared<TelemetryRow>(row);
+        auto shared_row = std::make_shared<const TelemetryRow>(row);
         auto *soc_row = new SharedTelemetryRow(shared_row);
         auto *soh_row = new SharedTelemetryRow(shared_row);
 
