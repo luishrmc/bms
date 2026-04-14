@@ -280,6 +280,7 @@ int main()
 
     db_cfg.max_lines_per_post = 2048;
     db_cfg.max_bytes_per_post = 512 * 1024;
+    db_cfg.max_buffer_age = boost::chrono::milliseconds(250);
 
     db_cfg.max_retries = 3;
     db_cfg.retry_delay = boost::chrono::milliseconds(100);
@@ -293,6 +294,9 @@ int main()
     std::cout << "  Database: " << db_cfg.database << std::endl;
     std::cout << "  Tables: " << db_cfg.voltage1_table << ", "
               << db_cfg.voltage2_table << ", " << db_cfg.temperature_table << std::endl;
+    std::cout << "  Batching: " << db_cfg.max_lines_per_post << " lines / "
+              << db_cfg.max_bytes_per_post << " bytes / "
+              << db_cfg.max_buffer_age.count() << " ms" << std::endl;
 
     std::cout << "\n[Main] Configuring DB consumer pipeline..." << std::endl;
     bms::DBConsumerConfig db_consumer_cfg;
