@@ -16,8 +16,9 @@
 #include <boost/chrono.hpp>
 #include <boost/thread/thread.hpp>
 
+#include <charconv>
 #include <cstdint>
-#include <sstream>
+#include <cstdio>
 #include <string>
 
 namespace bms
@@ -44,6 +45,7 @@ namespace bms
         // Batching (optimize HTTP requests)
         std::size_t max_lines_per_post{2048};
         std::size_t max_bytes_per_post{512 * 1024};
+        boost::chrono::milliseconds max_buffer_age{250};
 
         // Retry policy
         int max_retries{3};
@@ -155,6 +157,8 @@ namespace bms
         std::uint64_t total_voltage_samples() const noexcept { return voltage_samples_.load(); }
         std::uint64_t total_temperature_samples() const noexcept { return temperature_samples_.load(); }
         std::uint64_t dropped_flagged_samples() const noexcept { return dropped_flagged_.load(); }
+        std::uint64_t threshold_flushes() const noexcept { return threshold_flushes_.load(); }
+        std::uint64_t timer_flushes() const noexcept { return timer_flushes_.load(); }
 
         const std::string &last_error() const noexcept { return last_error_; }
 
@@ -162,18 +166,23 @@ namespace bms
         static constexpr std::size_t kVoltageChannelsPerDevice = 8;
         static constexpr std::size_t kTempSensors = 16;
 
-        void drain_voltage_(std::size_t &lines, std::size_t &bytes);
-        void drain_temperature_(std::size_t &lines, std::size_t &bytes);
+        void drain_voltage_();
+        void drain_temperature_();
 
-        void append_voltage_line_(const VoltageBatch &b, std::size_t &lines, std::size_t &bytes);
-        void append_temperature_line_(const TemperatureBatch &b, std::size_t &lines, std::size_t &bytes);
+        void append_voltage_line_(const VoltageBatch &b);
+        void append_temperature_line_(const TemperatureBatch &b);
 
-        bool should_flush_(std::size_t lines, std::size_t bytes) const noexcept
+        bool should_flush_threshold_() const noexcept
         {
-            return (lines >= cfg_.max_lines_per_post) || (bytes >= cfg_.max_bytes_per_post);
+            return (buffered_lines_ >= cfg_.max_lines_per_post) || (buffered_bytes_ >= cfg_.max_bytes_per_post);
         }
 
-        void flush_buffer_(std::size_t lines);
+        bool should_flush_timer_(const boost::chrono::steady_clock::time_point &now) const noexcept
+        {
+            return !buffer_.empty() && (now - last_flush_time_ >= cfg_.max_buffer_age);
+        }
+
+        void flush_buffer_(bool threshold_triggered);
 
         static std::int64_t to_influxdb_ns_(const std::chrono::system_clock::time_point &tp) noexcept
         {
@@ -194,6 +203,58 @@ namespace bms
             return out;
         }
 
+        static void append_unsigned_(std::string &out, std::size_t value)
+        {
+            char buf[32];
+            const auto result = std::to_chars(buf, buf + sizeof(buf), value);
+            if (result.ec == std::errc())
+            {
+                out.append(buf, static_cast<std::size_t>(result.ptr - buf));
+                return;
+            }
+            out += std::to_string(value);
+        }
+
+        static void append_int64_(std::string &out, std::int64_t value)
+        {
+            char buf[32];
+            const auto result = std::to_chars(buf, buf + sizeof(buf), value);
+            if (result.ec == std::errc())
+            {
+                out.append(buf, static_cast<std::size_t>(result.ptr - buf));
+                return;
+            }
+            out += std::to_string(value);
+        }
+
+        static void append_float_fixed_(std::string &out, double value, int precision)
+        {
+            char buf[64];
+            const auto result = std::to_chars(
+                buf,
+                buf + sizeof(buf),
+                value,
+                std::chars_format::fixed,
+                precision);
+
+            if (result.ec == std::errc())
+            {
+                out.append(buf, static_cast<std::size_t>(result.ptr - buf));
+                return;
+            }
+
+            // Toolchain fallback for floating-point to_chars limitations.
+            const int count = std::snprintf(buf, sizeof(buf), "%.*f", precision, value);
+            if (count > 0)
+            {
+                const std::size_t len = static_cast<std::size_t>(count);
+                out.append(buf, (len < sizeof(buf)) ? len : sizeof(buf) - 1);
+                return;
+            }
+
+            out += "0.0";
+        }
+
         InfluxDBConfig cfg_;
         InfluxHTTPClient &client_;
 
@@ -203,6 +264,9 @@ namespace bms
         TemperatureQueue &tq_;
 
         std::string buffer_;
+        std::size_t buffered_lines_{0};
+        std::size_t buffered_bytes_{0};
+        boost::chrono::steady_clock::time_point last_flush_time_{};
         std::string last_error_;
 
         // Atomic counters for thread-safe diagnostics
@@ -211,6 +275,8 @@ namespace bms
         boost::atomic<std::uint64_t> voltage_samples_{0};
         boost::atomic<std::uint64_t> temperature_samples_{0};
         boost::atomic<std::uint64_t> dropped_flagged_{0};
+        boost::atomic<std::uint64_t> threshold_flushes_{0};
+        boost::atomic<std::uint64_t> timer_flushes_{0};
     };
 
     // ===== Inline implementation (header-only consumer logic) ====================
@@ -225,26 +291,24 @@ namespace bms
         : cfg_(std::move(cfg)), client_(client), vpool_(vpool), tpool_(tpool), vq_(vq), tq_(tq)
     {
         buffer_.reserve(64 * 1024);
+        last_flush_time_ = boost::chrono::steady_clock::now();
     }
 
     inline void InfluxDBTask::operator()()
     {
-        std::size_t lines = 0;
-        std::size_t bytes = 0;
-
-        buffer_.clear();
         last_error_.clear();
 
-        drain_voltage_(lines, bytes);
-        drain_temperature_(lines, bytes);
+        drain_voltage_();
+        drain_temperature_();
 
-        if (!buffer_.empty())
+        const boost::chrono::steady_clock::time_point now = boost::chrono::steady_clock::now();
+        if (should_flush_timer_(now))
         {
-            flush_buffer_(lines);
+            flush_buffer_(false);
         }
     }
 
-    inline void InfluxDBTask::drain_voltage_(std::size_t &lines, std::size_t &bytes)
+    inline void InfluxDBTask::drain_voltage_()
     {
         VoltageBatch *batch = nullptr;
 
@@ -260,22 +324,19 @@ namespace bms
                 continue;
             }
 
-            append_voltage_line_(*batch, lines, bytes);
+            append_voltage_line_(*batch);
             vpool_.release(batch);
 
             voltage_samples_.fetch_add(1);
 
-            if (should_flush_(lines, bytes))
+            if (should_flush_threshold_())
             {
-                flush_buffer_(lines);
-                buffer_.clear();
-                lines = 0;
-                bytes = 0;
+                flush_buffer_(true);
             }
         }
     }
 
-    inline void InfluxDBTask::drain_temperature_(std::size_t &lines, std::size_t &bytes)
+    inline void InfluxDBTask::drain_temperature_()
     {
         TemperatureBatch *batch = nullptr;
 
@@ -291,22 +352,19 @@ namespace bms
                 continue;
             }
 
-            append_temperature_line_(*batch, lines, bytes);
+            append_temperature_line_(*batch);
             tpool_.release(batch);
 
             temperature_samples_.fetch_add(1);
 
-            if (should_flush_(lines, bytes))
+            if (should_flush_threshold_())
             {
-                flush_buffer_(lines);
-                buffer_.clear();
-                lines = 0;
-                bytes = 0;
+                flush_buffer_(true);
             }
         }
     }
 
-    inline void InfluxDBTask::append_voltage_line_(const VoltageBatch &b, std::size_t &lines, std::size_t &bytes)
+    inline void InfluxDBTask::append_voltage_line_(const VoltageBatch &b)
     {
         const std::int64_t ts_ns = to_influxdb_ns_(b.ts.timestamp);
 
@@ -329,25 +387,20 @@ namespace bms
                 buffer_ += ",";
 
             buffer_ += "ch";
-            buffer_ += std::to_string(i);
+            append_unsigned_(buffer_, i);
             buffer_ += "=";
-
-            std::ostringstream oss;
-            oss.setf(std::ios::fixed);
-            oss.precision(cfg_.voltage_precision);
-            oss << b.voltages[i];
-            buffer_ += oss.str();
+            append_float_fixed_(buffer_, b.voltages[i], cfg_.voltage_precision);
         }
 
         buffer_ += " ";
-        buffer_ += std::to_string(ts_ns);
+        append_int64_(buffer_, ts_ns);
         buffer_ += "\n";
 
-        lines++;
-        bytes = buffer_.size();
+        ++buffered_lines_;
+        buffered_bytes_ = buffer_.size();
     }
 
-    inline void InfluxDBTask::append_temperature_line_(const TemperatureBatch &b, std::size_t &lines, std::size_t &bytes)
+    inline void InfluxDBTask::append_temperature_line_(const TemperatureBatch &b)
     {
         const std::int64_t ts_ns = to_influxdb_ns_(b.ts.timestamp);
 
@@ -361,37 +414,51 @@ namespace bms
                 buffer_ += ",";
 
             buffer_ += "sensor";
-            buffer_ += std::to_string(i);
+            append_unsigned_(buffer_, i);
             buffer_ += "=";
-
-            std::ostringstream oss;
-            oss.setf(std::ios::fixed);
-            oss.precision(cfg_.temperature_precision);
-            oss << b.temperatures[i];
-            buffer_ += oss.str();
+            append_float_fixed_(buffer_, b.temperatures[i], cfg_.temperature_precision);
         }
 
         buffer_ += " ";
-        buffer_ += std::to_string(ts_ns);
+        append_int64_(buffer_, ts_ns);
         buffer_ += "\n";
 
-        lines++;
-        bytes = buffer_.size();
+        ++buffered_lines_;
+        buffered_bytes_ = buffer_.size();
     }
 
-    inline void InfluxDBTask::flush_buffer_(std::size_t lines)
+    inline void InfluxDBTask::flush_buffer_(bool threshold_triggered)
     {
+        if (buffer_.empty())
+        {
+            return;
+        }
+
+        if (threshold_triggered)
+        {
+            threshold_flushes_.fetch_add(1);
+        }
+        else
+        {
+            timer_flushes_.fetch_add(1);
+        }
+
         std::string err;
         if (!client_.write_lp(buffer_, err))
         {
             post_failures_.fetch_add(1);
             last_error_ = std::move(err);
-            // Drop payload on failure (bounded memory)
-            return;
+            // Explicit bounded-memory policy: drop failed payload.
+        }
+        else
+        {
+            total_posts_.fetch_add(1);
         }
 
-        total_posts_.fetch_add(1);
-        (void)lines;
+        buffer_.clear();
+        buffered_lines_ = 0;
+        buffered_bytes_ = 0;
+        last_flush_time_ = boost::chrono::steady_clock::now();
     }
 
 } // namespace bms
