@@ -223,7 +223,9 @@ int main()
     v_cfg.device1.host = "192.168.7.2";
     v_cfg.device1.port = 502;
     v_cfg.device1.unit_id = 1;
-    v_cfg.device1.response_timeout_sec = 2;
+    // Bound response timeout to acquisition cadence (voltage task runs at 100 ms).
+    v_cfg.device1.response_timeout_sec = 0;
+    v_cfg.device1.response_timeout_usec = 30000; // 30 ms
     v_cfg.device1.connect_retries = 3;
     v_cfg.device1.read_retries = 2;
 
@@ -231,7 +233,8 @@ int main()
     v_cfg.device2.host = "192.168.7.200";
     v_cfg.device2.port = 502;
     v_cfg.device2.unit_id = 2;
-    v_cfg.device2.response_timeout_sec = 2;
+    v_cfg.device2.response_timeout_sec = 0;
+    v_cfg.device2.response_timeout_usec = 30000; // 30 ms
     v_cfg.device2.connect_retries = 3;
     v_cfg.device2.read_retries = 2;
 
@@ -251,7 +254,9 @@ int main()
     t_cfg.device.host = "192.168.7.20";
     t_cfg.device.port = 502;
     t_cfg.device.unit_id = 1;
-    t_cfg.device.response_timeout_sec = 2;
+    // Bound response timeout to acquisition cadence (temperature task runs at 1000 ms).
+    t_cfg.device.response_timeout_sec = 0;
+    t_cfg.device.response_timeout_usec = 250000; // 250 ms
     t_cfg.device.connect_retries = 3;
     t_cfg.device.read_retries = 2;
 
