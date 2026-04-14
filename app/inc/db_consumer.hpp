@@ -15,8 +15,8 @@
 
 #include <chrono>
 #include <cstdint>
-#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace bms
@@ -30,6 +30,74 @@ namespace bms
      */
     struct TelemetryRow final
     {
+        TelemetryRow() = default;
+        TelemetryRow(const TelemetryRow &other)
+            : cursor(other.cursor),
+              timestamp(other.timestamp),
+              voltages(other.voltages),
+              current_a(other.current_a),
+              temperatures(other.temperatures),
+              valid(other.valid),
+              status(other.status)
+        {
+        }
+
+        TelemetryRow &operator=(const TelemetryRow &other)
+        {
+            if (this != &other)
+            {
+                cursor = other.cursor;
+                timestamp = other.timestamp;
+                voltages = other.voltages;
+                current_a = other.current_a;
+                temperatures = other.temperatures;
+                valid = other.valid;
+                status = other.status;
+                ref_count_.store(0, boost::memory_order_relaxed);
+            }
+            return *this;
+        }
+
+        TelemetryRow(TelemetryRow &&other) noexcept
+            : cursor(other.cursor),
+              timestamp(other.timestamp),
+              voltages(std::move(other.voltages)),
+              current_a(other.current_a),
+              temperatures(std::move(other.temperatures)),
+              valid(other.valid),
+              status(std::move(other.status))
+        {
+        }
+
+        TelemetryRow &operator=(TelemetryRow &&other) noexcept
+        {
+            if (this != &other)
+            {
+                cursor = other.cursor;
+                timestamp = other.timestamp;
+                voltages = std::move(other.voltages);
+                current_a = other.current_a;
+                temperatures = std::move(other.temperatures);
+                valid = other.valid;
+                status = std::move(other.status);
+                ref_count_.store(0, boost::memory_order_relaxed);
+            }
+            return *this;
+        }
+
+        void add_ref() const noexcept
+        {
+            ref_count_.fetch_add(1, boost::memory_order_relaxed);
+        }
+
+        void release() const noexcept
+        {
+            if (ref_count_.fetch_sub(1, boost::memory_order_acq_rel) == 1)
+            {
+                delete this;
+            }
+        }
+
         std::uint64_t cursor{0};
         std::chrono::system_clock::time_point timestamp{};
         std::vector<float> voltages{};
@@ -37,6 +105,18 @@ namespace bms
         std::vector<float> temperatures{};
         bool valid{true};
         std::string status{};
+        mutable boost::atomic<int> ref_count_{0};
+    };
+
+    struct SharedTelemetryDisposer final
+    {
+        void operator()(TelemetryRow *row) const noexcept
+        {
+            if (row)
+            {
+                row->release();
+            }
+        }
     };
 
     /**
@@ -107,8 +187,7 @@ namespace bms
     class DBConsumerTask final
     {
     public:
-        using SharedTelemetryRow = std::shared_ptr<const TelemetryRow>;
-        using RowQueue = SafeQueue<SharedTelemetryRow>;
+        using RowQueue = SafeQueue<TelemetryRow, SharedTelemetryDisposer>;
 
         DBConsumerTask(
             DBConsumerConfig cfg,
