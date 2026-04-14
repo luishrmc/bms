@@ -9,13 +9,19 @@
 #include "soh.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <utility>
 
 namespace bms
 {
-    SoHTask::SoHTask(SoHTaskConfig cfg, RowQueue &input_queue)
-        : cfg_(std::move(cfg)), input_queue_(input_queue), expected_cursor_(cfg_.initial_expected_cursor)
+    SoHTask::SoHTask(SoHTaskConfig cfg,
+                     RowQueue &input_queue,
+                     std::shared_ptr<ISoHEstimator> estimator)
+        : cfg_(std::move(cfg)),
+          input_queue_(input_queue),
+          estimator_(estimator ? std::move(estimator) : std::make_shared<NoOpSoHEstimator>()),
+          expected_cursor_(cfg_.initial_expected_cursor)
     {
     }
 
@@ -46,11 +52,21 @@ namespace bms
                 expected_cursor_ = sample.cursor;
             }
 
-            if (!process_row(sample))
+            const SoHEstimateResult estimate = process_row(sample);
+            diag_.last_estimator_message = estimate.message;
+
+            if (!estimate.accepted)
             {
+                diag_.estimator_rejections.fetch_add(1);
                 diag_.processing_failures.fetch_add(1);
                 input_queue_.dispose(row);
                 continue;
+            }
+
+            if (estimate.soh_percent.has_value())
+            {
+                const auto milli_pct = static_cast<std::int64_t>(std::llround(estimate.soh_percent.value() * 1000.0));
+                diag_.last_estimated_soh_milli_pct.store(milli_pct);
             }
 
             diag_.rows_processed.fetch_add(1);
@@ -67,11 +83,9 @@ namespace bms
         }
     }
 
-    bool SoHTask::process_row(const TelemetryRow &row)
+    SoHEstimateResult SoHTask::process_row(const TelemetryRow &row)
     {
-        (void)row;
-        // TODO(bms-soh): plug real SoH estimator here using ordered TelemetryRow input.
-        return true;
+        return estimator_->estimate(row);
     }
 
 } // namespace bms

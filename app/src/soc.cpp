@@ -9,13 +9,19 @@
 #include "soc.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <utility>
 
 namespace bms
 {
-    SoCTask::SoCTask(SoCTaskConfig cfg, RowQueue &input_queue)
-        : cfg_(std::move(cfg)), input_queue_(input_queue), expected_cursor_(cfg_.initial_expected_cursor)
+    SoCTask::SoCTask(SoCTaskConfig cfg,
+                     RowQueue &input_queue,
+                     std::shared_ptr<ISoCEstimator> estimator)
+        : cfg_(std::move(cfg)),
+          input_queue_(input_queue),
+          estimator_(estimator ? std::move(estimator) : std::make_shared<NoOpSoCEstimator>()),
+          expected_cursor_(cfg_.initial_expected_cursor)
     {
     }
 
@@ -46,11 +52,21 @@ namespace bms
                 expected_cursor_ = sample.cursor;
             }
 
-            if (!process_row(sample))
+            const SoCEstimateResult estimate = process_row(sample);
+            diag_.last_estimator_message = estimate.message;
+
+            if (!estimate.accepted)
             {
+                diag_.estimator_rejections.fetch_add(1);
                 diag_.processing_failures.fetch_add(1);
                 input_queue_.dispose(row);
                 continue;
+            }
+
+            if (estimate.soc_percent.has_value())
+            {
+                const auto milli_pct = static_cast<std::int64_t>(std::llround(estimate.soc_percent.value() * 1000.0));
+                diag_.last_estimated_soc_milli_pct.store(milli_pct);
             }
 
             diag_.rows_processed.fetch_add(1);
@@ -67,11 +83,9 @@ namespace bms
         }
     }
 
-    bool SoCTask::process_row(const TelemetryRow &row)
+    SoCEstimateResult SoCTask::process_row(const TelemetryRow &row)
     {
-        (void)row;
-        // TODO(bms-soc): plug real SoC estimator here using ordered TelemetryRow input.
-        return true;
+        return estimator_->estimate(row);
     }
 
 } // namespace bms
