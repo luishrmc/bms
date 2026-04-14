@@ -67,6 +67,18 @@ namespace bms
         std::vector<float> parse_numeric_array(const nlohmann::json &node)
         {
             std::vector<float> out;
+            if (node.is_string())
+            {
+                try
+                {
+                    return parse_numeric_array(nlohmann::json::parse(node.get<std::string>()));
+                }
+                catch (const std::exception &)
+                {
+                    return out;
+                }
+            }
+
             if (!node.is_array())
             {
                 return out;

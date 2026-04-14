@@ -11,12 +11,14 @@ namespace bms
         VoltageQueue &voltage_queue,
         TemperatureQueue &temperature_queue,
         RowQueue &soc_queue,
-        RowQueue &soh_queue)
+        RowQueue &soh_queue,
+        RowQueue &persistence_queue)
         : cfg_(std::move(cfg)),
           voltage_queue_(voltage_queue),
           temperature_queue_(temperature_queue),
           soc_queue_(soc_queue),
           soh_queue_(soh_queue),
+          persistence_queue_(persistence_queue),
           next_cursor_(cfg_.initial_cursor + 1)
     {
         diag_.last_published_cursor.store(cfg_.initial_cursor);
@@ -147,6 +149,45 @@ namespace bms
         {
             shared_row->release();
             TelemetryRow *rollback = nullptr;
+            if (soc_queue_.try_pop(rollback))
+            {
+                if (rollback == shared_row)
+                {
+                    soc_queue_.dispose(rollback);
+                }
+                else if (rollback != nullptr)
+                {
+                    if (!soc_queue_.push(rollback))
+                    {
+                        soc_queue_.dispose(rollback);
+                    }
+                }
+            }
+            return false;
+        }
+
+        shared_row->add_ref();
+        if (!persistence_queue_.push(shared_row))
+        {
+            shared_row->release();
+
+            TelemetryRow *rollback = nullptr;
+            if (soh_queue_.try_pop(rollback))
+            {
+                if (rollback == shared_row)
+                {
+                    soh_queue_.dispose(rollback);
+                }
+                else if (rollback != nullptr)
+                {
+                    if (!soh_queue_.push(rollback))
+                    {
+                        soh_queue_.dispose(rollback);
+                    }
+                }
+            }
+
+            rollback = nullptr;
             if (soc_queue_.try_pop(rollback))
             {
                 if (rollback == shared_row)

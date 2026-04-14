@@ -7,6 +7,7 @@
  */
 
 #include "influxdb.hpp"
+#include "db_consumer.hpp"
 
 #include <curl/curl.h>
 #include <boost/thread/thread.hpp>
@@ -238,4 +239,101 @@ bool InfluxHTTPClient::write_lp(const std::string &payload, std::string &error_o
         return true;
     }
 
+} // namespace bms
+
+namespace bms
+{
+ProcessedTelemetryWriterTask::ProcessedTelemetryWriterTask(
+    InfluxDBConfig cfg,
+    InfluxHTTPClient &client,
+    RowQueue &queue)
+    : cfg_(std::move(cfg)), client_(client), queue_(queue)
+{
+}
+
+void ProcessedTelemetryWriterTask::operator()()
+{
+    TelemetryRow *row = nullptr;
+    while (queue_.try_pop(row))
+    {
+        if (row == nullptr)
+        {
+            continue;
+        }
+
+        append_row_line_(*row);
+        queue_.dispose(row);
+    }
+
+    if (buffered_lines_ > 0U)
+    {
+        (void)flush_buffer_();
+    }
+}
+
+void ProcessedTelemetryWriterTask::append_row_line_(const TelemetryRow &row)
+{
+    const std::int64_t ts_ns = to_influxdb_ns_(row.timestamp);
+
+    buffer_ += table_name_;
+    buffer_ += " ";
+
+    buffer_ += "cursor=";
+    append_uint64_(buffer_, row.cursor);
+    buffer_ += "u";
+
+    buffer_ += ",current_a=";
+    append_float_fixed_(buffer_, row.current_a, cfg_.voltage_precision);
+
+    buffer_ += ",valid=";
+    buffer_ += (row.valid ? "true" : "false");
+
+    buffer_ += ",voltages=";
+    append_escaped_string_(buffer_, [&]() {
+        std::string payload;
+        payload.reserve(128);
+        append_numeric_array_json_(payload, row.voltages, kMaxVoltages, cfg_.voltage_precision);
+        return payload;
+    }());
+
+    buffer_ += ",temperatures=";
+    append_escaped_string_(buffer_, [&]() {
+        std::string payload;
+        payload.reserve(128);
+        append_numeric_array_json_(payload, row.temperatures, kMaxTemperatures, cfg_.temperature_precision);
+        return payload;
+    }());
+
+    buffer_ += ",status=";
+    append_escaped_string_(buffer_, row.status);
+
+    buffer_ += " ";
+    append_int64_(buffer_, ts_ns);
+    buffer_ += "\n";
+
+    ++buffered_lines_;
+    buffered_bytes_ = buffer_.size();
+}
+
+bool ProcessedTelemetryWriterTask::flush_buffer_()
+{
+    std::string err;
+    if (!client_.write_lp(buffer_, err))
+    {
+        post_failures_.fetch_add(1);
+        diag_.write_failures.fetch_add(buffered_lines_);
+        last_error_ = std::move(err);
+        buffer_.clear();
+        buffered_lines_ = 0;
+        buffered_bytes_ = 0;
+        return false;
+    }
+
+    total_posts_.fetch_add(1);
+    diag_.rows_written.fetch_add(buffered_lines_);
+    buffer_.clear();
+    buffered_lines_ = 0;
+    buffered_bytes_ = 0;
+    return true;
+}
 } // namespace bms

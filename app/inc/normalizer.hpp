@@ -44,7 +44,8 @@ namespace bms
             VoltageQueue &voltage_queue,
             TemperatureQueue &temperature_queue,
             RowQueue &soc_queue,
-            RowQueue &soh_queue);
+            RowQueue &soh_queue,
+            RowQueue &persistence_queue);
 
         NormalizerTask(const NormalizerTask &) = delete;
         NormalizerTask &operator=(const NormalizerTask &) = delete;
@@ -76,6 +77,7 @@ namespace bms
         TemperatureQueue &temperature_queue_;
         RowQueue &soc_queue_;
         RowQueue &soh_queue_;
+        RowQueue &persistence_queue_;
 
         std::uint64_t next_cursor_{1};
 
