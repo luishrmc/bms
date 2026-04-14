@@ -563,6 +563,8 @@ int main()
                 std::cout << "\nProcessed Telemetry Writer:" << std::endl;
                 std::cout << "  HTTP posts: " << processed_telemetry_writer.total_posts()
                           << " (failures: " << processed_telemetry_writer.total_post_failures() << ")" << std::endl;
+                std::cout << "  Flushes: threshold=" << processed_telemetry_writer.diagnostics().threshold_flushes.load()
+                          << ", timer=" << processed_telemetry_writer.diagnostics().timer_flushes.load() << std::endl;
                 std::cout << "  Rows written: " << processed_telemetry_writer.diagnostics().rows_written.load() << std::endl;
                 std::cout << "  Write failures: " << processed_telemetry_writer.diagnostics().write_failures.load() << std::endl;
                 if (!processed_telemetry_writer.last_error().empty())
@@ -685,6 +687,8 @@ int main()
         std::cout << "\nProcessed Telemetry Writer:" << std::endl;
         std::cout << "  HTTP posts: " << processed_telemetry_writer.total_posts() << std::endl;
         std::cout << "  HTTP failures: " << processed_telemetry_writer.total_post_failures() << std::endl;
+        std::cout << "  Flushes: threshold=" << processed_telemetry_writer.diagnostics().threshold_flushes.load()
+                  << ", timer=" << processed_telemetry_writer.diagnostics().timer_flushes.load() << std::endl;
         std::cout << "  Rows written: " << processed_telemetry_writer.diagnostics().rows_written.load() << std::endl;
         std::cout << "  Write failures: " << processed_telemetry_writer.diagnostics().write_failures.load() << std::endl;
 
