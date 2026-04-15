@@ -1,4 +1,4 @@
-#include "temperature_console.hpp"
+#include "temperature.hpp"
 
 #include <boost/chrono.hpp>
 
@@ -11,22 +11,22 @@
 
 namespace bms
 {
-    TemperatureConsoleAcquisition::TemperatureConsoleAcquisition(TemperatureConsoleAcquisitionConfig cfg)
+    TemperatureAcquisition::TemperatureAcquisition(TemperatureAcquisitionConfig cfg)
         : cfg_(std::move(cfg)), device_(cfg_.device)
     {
     }
 
-    bool TemperatureConsoleAcquisition::connect()
+    bool TemperatureAcquisition::connect()
     {
         return device_.connect();
     }
 
-    void TemperatureConsoleAcquisition::disconnect()
+    void TemperatureAcquisition::disconnect()
     {
         device_.disconnect();
     }
 
-    float TemperatureConsoleAcquisition::decode_channel_(
+    float TemperatureAcquisition::decode_channel_(
         const std::array<std::uint16_t, kRegisterBlockCount> &regs,
         std::size_t channel_index) noexcept
     {
@@ -35,7 +35,7 @@ namespace bms
         return modbus_registers_to_float(regs[hi], regs[lo]);
     }
 
-    std::string TemperatureConsoleAcquisition::format_timestamp_(std::chrono::system_clock::time_point tp)
+    std::string TemperatureAcquisition::format_timestamp_(std::chrono::system_clock::time_point tp)
     {
         const auto time = std::chrono::system_clock::to_time_t(tp);
         std::tm utc_tm = *std::gmtime(&time);
@@ -51,27 +51,25 @@ namespace bms
         return oss.str();
     }
 
-    void TemperatureConsoleAcquisition::log_success_(
-        const std::array<float, kChannelCount> &temperatures,
-        std::chrono::system_clock::time_point ts)
+    void TemperatureAcquisition::log_success_(const TemperatureSample &sample)
     {
-        const auto [min_it, max_it] = std::minmax_element(temperatures.begin(), temperatures.end());
+        const auto [min_it, max_it] = std::minmax_element(sample.temperatures.begin(), sample.temperatures.end());
 
-        std::cout << "[Temperature] seq=" << sequence_
-                  << " ts=" << format_timestamp_(ts)
+        std::cout << "[Temperature] seq=" << sample.sequence
+                  << " ts=" << format_timestamp_(sample.timestamp)
                   << " temp_ok=1"
                   << " sensors={"
-                  << "t1=" << temperatures[0]
-                  << ", t8=" << temperatures[7]
-                  << ", t9=" << temperatures[8]
-                  << ", t16=" << temperatures[15]
+                  << "t1=" << sample.temperatures[0]
+                  << ", t8=" << sample.temperatures[7]
+                  << ", t9=" << sample.temperatures[8]
+                  << ", t16=" << sample.temperatures[15]
                   << "}"
                   << " min_c=" << *min_it
                   << " max_c=" << *max_it
                   << std::endl;
     }
 
-    void TemperatureConsoleAcquisition::log_failure_()
+    void TemperatureAcquisition::log_failure_()
     {
         std::cout << "[Temperature] seq=" << sequence_
                   << " temp_ok=0"
@@ -79,7 +77,7 @@ namespace bms
                   << std::endl;
     }
 
-    void TemperatureConsoleAcquisition::log_diagnostics_()
+    void TemperatureAcquisition::log_diagnostics_()
     {
         const auto attempts = diagnostics_.attempts.load();
         const auto successes = diagnostics_.successes.load();
@@ -98,7 +96,7 @@ namespace bms
                   << std::endl;
     }
 
-    void TemperatureConsoleAcquisition::operator()()
+    void TemperatureAcquisition::operator()()
     {
         const auto cycle_start = boost::chrono::steady_clock::now();
 
@@ -109,19 +107,32 @@ namespace bms
 
         if (read_ok)
         {
-            std::array<float, kChannelCount> temperatures{};
+            TemperatureSample sample;
+            sample.timestamp = std::chrono::system_clock::now();
+            sample.sequence = sequence_;
             for (std::size_t i = 0; i < kChannelCount; ++i)
             {
-                temperatures[i] = decode_channel_(regs, i);
+                sample.temperatures[i] = decode_channel_(regs, i);
             }
 
             diagnostics_.successes.fetch_add(1);
-            log_success_(temperatures, std::chrono::system_clock::now());
+            if (cfg_.enable_sample_logging)
+            {
+                log_success_(sample);
+            }
+
+            if (on_sample_)
+            {
+                on_sample_(sample);
+            }
         }
         else
         {
             diagnostics_.failures.fetch_add(1);
-            log_failure_();
+            if (cfg_.enable_sample_logging)
+            {
+                log_failure_();
+            }
         }
 
         ++sequence_;

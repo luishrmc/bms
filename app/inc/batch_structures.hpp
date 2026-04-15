@@ -98,7 +98,15 @@ namespace bms
     {
         std::chrono::system_clock::time_point timestamp{};
         std::array<float, 15> cell_voltages{};
+        float raw_current_sensor_v{0.0F};
         float current_a{0.0F};
+        std::uint64_t sequence{0};
+    };
+
+    struct TemperatureSample final
+    {
+        std::chrono::system_clock::time_point timestamp{};
+        std::array<float, kChannelCount> temperatures{};
         std::uint64_t sequence{0};
     };
 

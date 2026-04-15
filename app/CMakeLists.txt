@@ -6,12 +6,11 @@ set(BMS_EXEC_NAME bms)
 # Define the main executable and specify its source files
 add_executable(${BMS_EXEC_NAME}
     src/main.cpp
+    src/db_publisher.cpp
     src/influxdb.cpp
     src/modbus_reader.cpp
-    src/temperature_console.cpp
+    src/temperature.cpp
     src/voltage_current.cpp
-    src/db_consumer.cpp
-    src/normalizer.cpp
     src/soc.cpp
     src/soh.cpp
 )
