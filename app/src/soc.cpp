@@ -1,91 +1,46 @@
-/**
- * @file        soc.cpp
- * @author      Luis Maciel (luishrm@ufmg.br)
- * @brief       SoC task scaffold implementation.
- * @version     0.0.1
- * @date        2026-04-12
- */
-
 #include "soc.hpp"
 
-#include <chrono>
-#include <cmath>
 #include <iostream>
 #include <utility>
 
 namespace bms
 {
-    SoCTask::SoCTask(SoCTaskConfig cfg,
-                     RowQueue &input_queue,
-                     std::shared_ptr<ISoCEstimator> estimator)
-        : cfg_(std::move(cfg)),
-          input_queue_(input_queue),
-          estimator_(estimator ? std::move(estimator) : std::make_shared<NoOpSoCEstimator>()),
-          expected_cursor_(cfg_.initial_expected_cursor)
+    SoCTask::SoCTask(SoCTaskConfig cfg, const MeasurementBus &input_bus)
+        : cfg_(std::move(cfg)), input_bus_(input_bus)
     {
     }
 
     void SoCTask::operator()()
     {
-        TelemetryRow *row = nullptr;
-        while (input_queue_.try_pop(row))
+        const MeasurementFrame frame = input_bus_.latest();
+
+        if (!frame.voltage_current.has_value() || !frame.temperature.has_value())
         {
-            if (!row)
-            {
-                continue;
-            }
-
-            const TelemetryRow &sample = *row;
-
-            if (sample.cursor < expected_cursor_)
-            {
-                diag_.duplicates_skipped.fetch_add(1);
-                input_queue_.dispose(row);
-                continue;
-            }
-
-            if (sample.cursor > expected_cursor_)
-            {
-                diag_.out_of_order_rows.fetch_add(1);
-                std::cerr << "[SoC] Out-of-order cursor: expected " << expected_cursor_
-                          << " got " << sample.cursor << std::endl;
-                expected_cursor_ = sample.cursor;
-            }
-
-            const SoCEstimateResult estimate = process_row(sample);
-            diag_.last_estimator_message = estimate.message;
-
-            if (!estimate.accepted)
-            {
-                diag_.estimator_rejections.fetch_add(1);
-                diag_.processing_failures.fetch_add(1);
-                input_queue_.dispose(row);
-                continue;
-            }
-
-            if (estimate.soc_percent.has_value())
-            {
-                const auto milli_pct = static_cast<std::int64_t>(std::llround(estimate.soc_percent.value() * 1000.0));
-                diag_.last_estimated_soc_milli_pct.store(milli_pct);
-            }
-
-            diag_.rows_processed.fetch_add(1);
-            diag_.last_processed_cursor.store(sample.cursor);
-            diag_.last_status = sample.status;
-
-            const auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     std::chrono::system_clock::now() - sample.timestamp)
-                                     .count();
-            diag_.last_latency_ms.store(latency);
-
-            expected_cursor_ = sample.cursor + 1;
-            input_queue_.dispose(row);
+            return;
         }
-    }
 
-    SoCEstimateResult SoCTask::process_row(const TelemetryRow &row)
-    {
-        return estimator_->estimate(row);
+        const auto &vc = frame.voltage_current.value();
+        const auto &temp = frame.temperature.value();
+
+        if (vc.sequence == last_seen_voltage_sequence_ &&
+            temp.sequence == last_seen_temperature_sequence_)
+        {
+            return;
+        }
+
+        last_seen_voltage_sequence_ = vc.sequence;
+        last_seen_temperature_sequence_ = temp.sequence;
+
+        diag_.frames_observed += 1;
+        diag_.frames_with_both_measurements += 1;
+        diag_.last_voltage_sequence = vc.sequence;
+        diag_.last_temperature_sequence = temp.sequence;
+
+        if (cfg_.enable_diagnostics_logging)
+        {
+            std::cout << "[SoC][interface] received frame vc_seq=" << vc.sequence
+                      << " temp_seq=" << temp.sequence << std::endl;
+        }
     }
 
 } // namespace bms

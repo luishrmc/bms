@@ -5,13 +5,17 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <utility>
 
 namespace bms
 {
     VoltageCurrentAcquisition::VoltageCurrentAcquisition(VoltageCurrentAcquisitionConfig cfg)
-        : cfg_(std::move(cfg)), dev1_(cfg_.device1), dev2_(cfg_.device2)
+        : cfg_(std::move(cfg)),
+          dev1_(cfg_.device1),
+          dev2_(cfg_.device2),
+          converter_(cfg_.current_scale_a_per_v, cfg_.current_offset_a)
     {
     }
 
@@ -58,6 +62,7 @@ namespace bms
         std::cout << "[VoltageCurrent] seq=" << sample.sequence
                   << " ts=" << format_timestamp_(sample.timestamp)
                   << " pair_ok=1"
+                  << " raw_current_sensor_v=" << sample.raw_current_sensor_v
                   << " current_a=" << sample.current_a
                   << " cells={"
                   << "c1=" << sample.cell_voltages[0]
@@ -158,15 +163,35 @@ namespace bms
             {
                 sample.cell_voltages[8 + i] = decode_channel_(regs2, i);
             }
-            sample.current_a = decode_channel_(regs2, 7);
+            if (cfg_.current_source_channel < 8)
+            {
+                sample.raw_current_sensor_v = decode_channel_(regs2, cfg_.current_source_channel);
+                sample.current_a = converter_.to_current_a(sample.raw_current_sensor_v);
+            }
+            else
+            {
+                sample.raw_current_sensor_v = std::numeric_limits<float>::quiet_NaN();
+                sample.current_a = std::numeric_limits<float>::quiet_NaN();
+            }
 
             diagnostics_.pair_successes.fetch_add(1);
-            log_success_(sample);
+            if (cfg_.enable_sample_logging)
+            {
+                log_success_(sample);
+            }
+
+            if (on_sample_)
+            {
+                on_sample_(sample);
+            }
         }
         else
         {
             diagnostics_.pair_failures.fetch_add(1);
-            log_failure_(dev1_ok, dev2_ok);
+            if (cfg_.enable_sample_logging)
+            {
+                log_failure_(dev1_ok, dev2_ok);
+            }
         }
 
         ++sequence_;

@@ -7,7 +7,9 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <string>
+#include <utility>
 
 namespace bms
 {
@@ -15,7 +17,29 @@ namespace bms
     {
         ModbusTcpConfig device1{};
         ModbusTcpConfig device2{};
+        std::size_t current_source_channel{7};
+        float current_scale_a_per_v{1.0F};
+        float current_offset_a{0.0F};
+        bool enable_sample_logging{true};
         std::uint64_t diagnostics_every_cycles{0};
+    };
+
+    class CurrentConverter final
+    {
+    public:
+        CurrentConverter(float scale_a_per_v, float offset_a) noexcept
+            : scale_a_per_v_(scale_a_per_v), offset_a_(offset_a)
+        {
+        }
+
+        float to_current_a(float sensor_voltage_v) const noexcept
+        {
+            return (sensor_voltage_v * scale_a_per_v_) + offset_a_;
+        }
+
+    private:
+        float scale_a_per_v_{1.0F};
+        float offset_a_{0.0F};
     };
 
     struct VoltageCurrentAcquisitionDiagnostics final
@@ -35,6 +59,8 @@ namespace bms
     class VoltageCurrentAcquisition final
     {
     public:
+        using SampleCallback = std::function<void(const VoltageCurrentSample &)>;
+
         explicit VoltageCurrentAcquisition(VoltageCurrentAcquisitionConfig cfg);
 
         VoltageCurrentAcquisition(const VoltageCurrentAcquisition &) = delete;
@@ -50,6 +76,7 @@ namespace bms
 
         const ModbusStatus &device1_status() const noexcept { return dev1_.status(); }
         const ModbusStatus &device2_status() const noexcept { return dev2_.status(); }
+        void set_sample_callback(SampleCallback callback) { on_sample_ = std::move(callback); }
 
     private:
         static float decode_channel_(const std::array<std::uint16_t, kRegisterBlockCount> &regs,
@@ -65,6 +92,8 @@ namespace bms
 
         ModbusTcpClient dev1_;
         ModbusTcpClient dev2_;
+        CurrentConverter converter_;
+        SampleCallback on_sample_{};
 
         VoltageCurrentAcquisitionDiagnostics diagnostics_{};
         std::uint64_t sequence_{0};
