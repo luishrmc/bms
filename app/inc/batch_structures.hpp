@@ -93,6 +93,15 @@ namespace bms
         SampleFlags flags{SampleFlags::None};
     };
 
+
+    struct VoltageCurrentSample final
+    {
+        std::chrono::system_clock::time_point timestamp{};
+        std::array<float, 15> cell_voltages{};
+        float current_a{0.0F};
+        std::uint64_t sequence{0};
+    };
+
     // ============================================================================
     // Timestamp Conversion
     // ============================================================================
