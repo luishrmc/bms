@@ -41,16 +41,16 @@ if [ "$STATUS" -ne 200 ] && [ "$STATUS" -ne 201 ] && [ "$STATUS" -ne 409 ]; then
 fi
 
 # 4. INITIALIZE TABLE (Schema-on-Write)
-echo -e "\nStep 2: Initializing processed telemetry schema..."
+echo -e "\nStep 2: Initializing voltage/current schema..."
 
-PROCESSED_DATA='processed_telemetry cursor=0u,current_a=0.0,valid=false,voltages="[]",temperatures="[]",status="bootstrap"'
+VOLTAGE_CURRENT_BOOTSTRAP='voltage_current cell1_v=0.0,cell2_v=0.0,cell3_v=0.0,cell4_v=0.0,cell5_v=0.0,cell6_v=0.0,cell7_v=0.0,cell8_v=0.0,cell9_v=0.0,cell10_v=0.0,cell11_v=0.0,cell12_v=0.0,cell13_v=0.0,cell14_v=0.0,cell15_v=0.0,current_a=0.0'
 
-echo -n "Configuring processed_telemetry... "
+echo -n "Configuring voltage_current... "
 WRITE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST "http://${HOST}:${PORT}/api/v3/write_lp?db=${DB_NAME}&precision=auto" \
   --header "Authorization: Bearer $TOKEN" \
   --header "Content-Type: text/plain; charset=utf-8" \
-  --data-binary "$PROCESSED_DATA")
+  --data-binary "$VOLTAGE_CURRENT_BOOTSTRAP")
 
 if [ "$WRITE_STATUS" -eq 204 ]; then
     echo "OK (204)"
@@ -61,4 +61,4 @@ fi
 
 echo -e "\n--- Setup Verified and Complete ---"
 echo "Database: $DB_NAME"
-echo "Tables: processed_telemetry"
+echo "Tables: voltage_current"
