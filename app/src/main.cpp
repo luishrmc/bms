@@ -40,20 +40,14 @@ int main()
     vc_cfg.device1.host = "192.168.7.2";
     vc_cfg.device1.port = 502;
     vc_cfg.device1.unit_id = 1;
-    vc_cfg.device1.response_timeout_sec = 0;
-    vc_cfg.device1.response_timeout_usec = 30000;
     vc_cfg.device1.connect_retries = 3;
     vc_cfg.device1.read_retries = 2;
 
     vc_cfg.device2.host = "192.168.7.200";
     vc_cfg.device2.port = 502;
     vc_cfg.device2.unit_id = 2;
-    vc_cfg.device2.response_timeout_sec = 0;
-    vc_cfg.device2.response_timeout_usec = 30000;
     vc_cfg.device2.connect_retries = 3;
     vc_cfg.device2.read_retries = 2;
-
-    vc_cfg.diagnostics_every_cycles = 50; // ~5s at nominal 10Hz
 
     std::cout << "  Device 1: " << vc_cfg.device1.host << ":" << vc_cfg.device1.port << std::endl;
     std::cout << "  Device 2: " << vc_cfg.device2.host << ":" << vc_cfg.device2.port << std::endl;
@@ -78,7 +72,7 @@ int main()
 
         std::cout << "\n[Main] Creating periodic task (100 ms)..." << std::endl;
         bms::PeriodicTask voltage_current_task(
-            boost::chrono::milliseconds(100),
+            boost::chrono::milliseconds(50),
             std::ref(voltage_current_acquisition));
 
         std::cout << "\n========================================" << std::endl;

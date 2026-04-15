@@ -15,7 +15,7 @@ namespace bms
     {
         ModbusTcpConfig device1{};
         ModbusTcpConfig device2{};
-        std::uint64_t diagnostics_every_cycles{50};
+        std::uint64_t diagnostics_every_cycles{0};
     };
 
     struct VoltageCurrentAcquisitionDiagnostics final
