@@ -191,9 +191,8 @@ int main()
 
     std::cout << "[Main] Creating queues..." << std::endl;
 
-    // Use InfluxDBTask's type aliases
-    using VoltageQueue = bms::InfluxDBTask::VoltageQueue;
-    using TemperatureQueue = bms::InfluxDBTask::TemperatureQueue;
+    using VoltageQueue = bms::SafeQueue<bms::VoltageBatch, bms::VoltageBatchPool::Deleter>;
+    using TemperatureQueue = bms::SafeQueue<bms::TemperatureBatch, bms::TemperatureBatchPool::Deleter>;
 
     // Explicitly cast lambda to Deleter type
     VoltageQueue voltage_queue(
@@ -204,18 +203,8 @@ int main()
         64,
         bms::TemperatureBatchPool::Deleter(temperature_pool.disposer()));
 
-    VoltageQueue voltage_normalizer_queue(
-        64,
-        bms::VoltageBatchPool::Deleter(voltage_pool.disposer()));
-
-    TemperatureQueue temperature_normalizer_queue(
-        64,
-        bms::TemperatureBatchPool::Deleter(temperature_pool.disposer()));
-
     std::cout << "  Voltage queue capacity: 64" << std::endl;
     std::cout << "  Temperature queue capacity: 64" << std::endl;
-    std::cout << "  Voltage->Normalizer queue capacity: 64" << std::endl;
-    std::cout << "  Temperature->Normalizer queue capacity: 64" << std::endl;
 
     using RowQueue = bms::DBConsumerTask::RowQueue;
     RowQueue soc_queue(512);
@@ -289,9 +278,6 @@ int main()
     db_cfg.database = "battery_data";
     db_cfg.token = get_token();
 
-    db_cfg.voltage1_table = "voltage1";
-    db_cfg.voltage2_table = "voltage2";
-    db_cfg.temperature_table = "temperature";
 
     db_cfg.connect_timeout = boost::chrono::milliseconds(1500);
     db_cfg.request_timeout = boost::chrono::milliseconds(5000);
@@ -303,22 +289,18 @@ int main()
     db_cfg.max_retries = 3;
     db_cfg.retry_delay = boost::chrono::milliseconds(100);
 
-    db_cfg.include_invalid_samples = false; // Drop flagged samples
-
     db_cfg.voltage_precision = 6;
     db_cfg.temperature_precision = 3;
 
     std::cout << "  URL: " << db_cfg.base_url << std::endl;
     std::cout << "  Database: " << db_cfg.database << std::endl;
-    std::cout << "  Tables: " << db_cfg.voltage1_table << ", "
-              << db_cfg.voltage2_table << ", " << db_cfg.temperature_table << std::endl;
+    std::cout << "  Table: processed_telemetry" << std::endl;
     std::cout << "  Batching: " << db_cfg.max_lines_per_post << " lines / "
               << db_cfg.max_bytes_per_post << " bytes / "
               << db_cfg.max_buffer_age.count() << " ms" << std::endl;
 
     bms::NormalizerConfig normalizer_cfg;
     normalizer_cfg.initial_cursor = 0;
-    normalizer_cfg.default_current_a = 0.0F;
 
     bms::SoCTaskConfig soc_cfg;
     soc_cfg.initial_expected_cursor = normalizer_cfg.initial_cursor + 1;
@@ -331,10 +313,10 @@ int main()
 
     std::cout << "\n[Main] Creating acquisition instances..." << std::endl;
 
-    bms::VoltageAcquisition voltage_producer(v_cfg, voltage_pool, voltage_queue, voltage_normalizer_queue);
+    bms::VoltageAcquisition voltage_producer(v_cfg, voltage_pool, voltage_queue);
 
     bms::TemperatureAcquisition<TemperatureQueue> temperature_producer(
-        t_cfg, temperature_pool, temperature_queue, temperature_normalizer_queue);
+        t_cfg, temperature_pool, temperature_queue);
 
     // ========================================================================
     // 8. Create InfluxDB Client and Task
@@ -344,11 +326,10 @@ int main()
 
     try
     {
-        bms::InfluxHTTPClient raw_influx_client(db_cfg);
         bms::InfluxHTTPClient processed_influx_client(db_cfg);
 
         std::cout << "[Main] Testing InfluxDB write-endpoint reachability..." << std::endl;
-        if (!raw_influx_client.ping())
+        if (!processed_influx_client.ping())
         {
             std::cerr << "  WARNING: InfluxDB write endpoint probe failed at " << db_cfg.base_url << std::endl;
             std::cerr << "  Startup will continue; verify write diagnostics after launch." << std::endl;
@@ -358,19 +339,12 @@ int main()
             std::cout << "  ✓ InfluxDB write endpoint is reachable" << std::endl;
         }
 
-        std::cout << "[Main] Creating InfluxDB task..." << std::endl;
-        bms::InfluxDBTask influx_task(
-            db_cfg,
-            raw_influx_client,
-            voltage_pool,
-            temperature_pool,
-            voltage_queue,
-            temperature_queue);
-
+        bms::PlaceholderVoltageCurrentSource placeholder_current_source;
         bms::NormalizerTask normalizer_task_worker(
             normalizer_cfg,
-            voltage_normalizer_queue,
-            temperature_normalizer_queue,
+            placeholder_current_source,
+            voltage_queue,
+            temperature_queue,
             soc_queue,
             soh_queue,
             normalized_persistence_queue);
@@ -425,10 +399,6 @@ int main()
             boost::chrono::milliseconds(1000), // 1 Hz
             std::ref(temperature_producer));
 
-        bms::PeriodicTask influxdb_task(
-            boost::chrono::milliseconds(50), // 20 Hz
-            std::ref(influx_task));
-
         bms::PeriodicTask normalizer_task(
             boost::chrono::milliseconds(20),
             std::ref(normalizer_task_worker));
@@ -450,9 +420,6 @@ int main()
         // ========================================================================
 
         std::cout << "[Main] Creating console monitor..." << std::endl;
-
-        boost::atomic<std::uint64_t> monitor_voltage{0};
-        boost::atomic<std::uint64_t> monitor_temperature{0};
 
         auto monitor_work = [&]()
         {
@@ -476,7 +443,6 @@ int main()
 
         voltage_task.start();
         temperature_task.start();
-        influxdb_task.start();
         normalizer_task.start();
         processed_telemetry_task.start();
         soc_task.start();
@@ -515,20 +481,6 @@ int main()
                 std::cout << "  Reads: " << temperature_producer.device_status().successful_reads
                           << " (failures: " << temperature_producer.device_status().read_failures << ")" << std::endl;
 
-                std::cout << "\nInfluxDB Writer:" << std::endl;
-                std::cout << "  HTTP posts: " << influx_task.total_posts()
-                          << " (failures: " << influx_task.total_post_failures() << ")" << std::endl;
-                std::cout << "  Flushes: threshold=" << influx_task.threshold_flushes()
-                          << ", timer=" << influx_task.timer_flushes() << std::endl;
-                std::cout << "  Voltage samples written: " << influx_task.total_voltage_samples() << std::endl;
-                std::cout << "  Temperature samples written: " << influx_task.total_temperature_samples() << std::endl;
-                std::cout << "  Dropped (flagged): " << influx_task.dropped_flagged_samples() << std::endl;
-
-                if (!influx_task.last_error().empty())
-                {
-                    std::cout << "  Last error: " << influx_task.last_error() << std::endl;
-                }
-
                 std::cout << "\nQueues:" << std::endl;
                 std::cout << "  Voltage queue size: " << voltage_queue.approximate_size()
                           << " (peak: " << voltage_queue.peak_size()
@@ -536,12 +488,6 @@ int main()
                 std::cout << "  Temperature queue size: " << temperature_queue.approximate_size()
                           << " (peak: " << temperature_queue.peak_size()
                           << ", dropped: " << temperature_queue.dropped_count() << ")" << std::endl;
-                std::cout << "  Voltage->Normalizer queue size: " << voltage_normalizer_queue.approximate_size()
-                          << " (peak: " << voltage_normalizer_queue.peak_size()
-                          << ", dropped: " << voltage_normalizer_queue.dropped_count() << ")" << std::endl;
-                std::cout << "  Temperature->Normalizer queue size: " << temperature_normalizer_queue.approximate_size()
-                          << " (peak: " << temperature_normalizer_queue.peak_size()
-                          << ", dropped: " << temperature_normalizer_queue.dropped_count() << ")" << std::endl;
                 std::cout << "  SoC queue size: " << soc_queue.approximate_size()
                           << " (peak: " << soc_queue.peak_size()
                           << ", dropped: " << soc_queue.dropped_count() << ")" << std::endl;
@@ -595,11 +541,6 @@ int main()
                 std::cout << "  Temperature in use: " << temperature_pool.in_use_count()
                           << "/" << temperature_pool.preallocated() << std::endl;
 
-                std::cout << "\nHTTP Client Stats (Raw Writer):" << std::endl;
-                std::cout << "  Total HTTP posts: " << raw_influx_client.total_posts() << std::endl;
-                std::cout << "  HTTP failures: " << raw_influx_client.total_failures() << std::endl;
-                std::cout << "  HTTP retries: " << raw_influx_client.total_retries() << std::endl;
-                std::cout << "  Last HTTP code: " << raw_influx_client.last_http_code() << std::endl;
                 std::cout << "\nHTTP Client Stats (Processed Writer):" << std::endl;
                 std::cout << "  Total HTTP posts: " << processed_influx_client.total_posts() << std::endl;
                 std::cout << "  HTTP failures: " << processed_influx_client.total_failures() << std::endl;
@@ -619,7 +560,6 @@ int main()
         std::cout << "[Main] Stopping periodic tasks..." << std::endl;
         voltage_task.stop();
         temperature_task.stop();
-        influxdb_task.stop();
         normalizer_task.stop();
         processed_telemetry_task.stop();
         soc_task.stop();
@@ -629,7 +569,6 @@ int main()
         std::cout << "[Main] Joining threads..." << std::endl;
         voltage_task.join();
         temperature_task.join();
-        influxdb_task.join();
         normalizer_task.join();
         processed_telemetry_task.join();
         soc_task.join();
@@ -640,8 +579,6 @@ int main()
         std::cout << "[Main] Closing queues..." << std::endl;
         voltage_queue.close();
         temperature_queue.close();
-        voltage_normalizer_queue.close();
-        temperature_normalizer_queue.close();
         soc_queue.close();
         soh_queue.close();
         normalized_persistence_queue.close();
@@ -667,19 +604,6 @@ int main()
         std::cout << "  Total published: " << temperature_producer.total_published() << std::endl;
         std::cout << "  Total dropped: " << temperature_producer.total_dropped() << std::endl;
 
-        std::cout << "\nInfluxDB Writer:" << std::endl;
-        std::cout << "  HTTP posts: " << influx_task.total_posts() << std::endl;
-        std::cout << "  HTTP failures: " << influx_task.total_post_failures() << std::endl;
-        std::cout << "  Flushes: threshold=" << influx_task.threshold_flushes()
-                  << ", timer=" << influx_task.timer_flushes() << std::endl;
-        std::cout << "  Voltage samples: " << influx_task.total_voltage_samples() << std::endl;
-        std::cout << "  Temperature samples: " << influx_task.total_temperature_samples() << std::endl;
-        std::cout << "  Dropped (flagged): " << influx_task.dropped_flagged_samples() << std::endl;
-
-        std::cout << "\nHTTP Client (Raw Writer):" << std::endl;
-        std::cout << "  Total posts: " << raw_influx_client.total_posts() << std::endl;
-        std::cout << "  Failures: " << raw_influx_client.total_failures() << std::endl;
-        std::cout << "  Retries: " << raw_influx_client.total_retries() << std::endl;
         std::cout << "\nHTTP Client (Processed Writer):" << std::endl;
         std::cout << "  Total posts: " << processed_influx_client.total_posts() << std::endl;
         std::cout << "  Failures: " << processed_influx_client.total_failures() << std::endl;
@@ -723,14 +647,6 @@ int main()
                   << ", popped=" << temperature_queue.total_popped()
                   << ", peak=" << temperature_queue.peak_size()
                   << ", dropped=" << temperature_queue.dropped_count() << std::endl;
-        std::cout << "  Voltage->Normalizer: pushed=" << voltage_normalizer_queue.total_pushed()
-                  << ", popped=" << voltage_normalizer_queue.total_popped()
-                  << ", peak=" << voltage_normalizer_queue.peak_size()
-                  << ", dropped=" << voltage_normalizer_queue.dropped_count() << std::endl;
-        std::cout << "  Temperature->Normalizer: pushed=" << temperature_normalizer_queue.total_pushed()
-                  << ", popped=" << temperature_normalizer_queue.total_popped()
-                  << ", peak=" << temperature_normalizer_queue.peak_size()
-                  << ", dropped=" << temperature_normalizer_queue.dropped_count() << std::endl;
         std::cout << "  SoC: pushed=" << soc_queue.total_pushed()
                   << ", popped=" << soc_queue.total_popped()
                   << ", peak=" << soc_queue.peak_size()

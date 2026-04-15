@@ -1,19 +1,36 @@
 #include "normalizer.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <vector>
 
 namespace bms
 {
+    float PlaceholderVoltageCurrentSource::estimate_pack_current_a(const std::array<float, 8> &device1_voltages) const noexcept
+    {
+        // TODO(bms-current-sensor): Replace this placeholder with the real current sensor path.
+        // Temporary behavior intentionally derives input from Device 1 voltage acquisition only.
+        const float proxy_voltage_v = device1_voltages[0]; // Device 1 ch0 (cell1 voltage)
+        if (!std::isfinite(proxy_voltage_v))
+        {
+            return 0.0F;
+        }
+
+        // Placeholder output: deterministic stub while preserving integration seam.
+        return proxy_voltage_v * 0.0F;
+    }
+
     NormalizerTask::NormalizerTask(
         NormalizerConfig cfg,
+        const ICurrentSource &current_source,
         VoltageQueue &voltage_queue,
         TemperatureQueue &temperature_queue,
         RowQueue &soc_queue,
         RowQueue &soh_queue,
         RowQueue &persistence_queue)
         : cfg_(std::move(cfg)),
+          current_source_(current_source),
           voltage_queue_(voltage_queue),
           temperature_queue_(temperature_queue),
           soc_queue_(soc_queue),
@@ -117,11 +134,21 @@ namespace bms
             row.timestamp = max_ts_(row.timestamp, temperature_ts_);
         }
 
-        row.voltages.reserve(16);
-        row.voltages.insert(row.voltages.end(), device1_voltages_.begin(), device1_voltages_.end());
-        row.voltages.insert(row.voltages.end(), device2_voltages_.begin(), device2_voltages_.end());
+        row.voltages.reserve(kPackCellCount);
 
-        row.current_a = cfg_.default_current_a;
+        // Explicit battery-cell mapping (15-cell pack):
+        // Device 1 @192.168.7.2:
+        //   ch0->cell1, ch1->cell2, ch2->cell3, ch3->cell4,
+        //   ch4->cell5, ch5->cell6, ch6->cell7, ch7->cell8.
+        row.voltages.insert(row.voltages.end(), device1_voltages_.begin(), device1_voltages_.end());
+
+        // Device 2:
+        //   ch0->cell9, ch1->cell10, ch2->cell11, ch3->cell12,
+        //   ch4->cell13, ch5->cell14, ch6->cell15.
+        //   ch7 is NOT a battery cell voltage and is intentionally excluded.
+        row.voltages.insert(row.voltages.end(), device2_voltages_.begin(), device2_voltages_.begin() + 7);
+
+        row.current_a = current_source_.estimate_pack_current_a(device1_voltages_);
 
         if (have_temperature_)
         {

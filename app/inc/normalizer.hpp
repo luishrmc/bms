@@ -1,8 +1,9 @@
 #pragma once
 
 #include "batch_structures.hpp"
+#include "batch_pool.hpp"
 #include "db_consumer.hpp"
-#include "influxdb.hpp"
+#include "safe_queue.hpp"
 
 #include <boost/atomic.hpp>
 
@@ -17,7 +18,28 @@ namespace bms
     struct NormalizerConfig final
     {
         std::uint64_t initial_cursor{0};
-        float default_current_a{0.0F};
+    };
+
+    /**
+     * Temporary abstraction for pack current sourcing.
+     *
+     * TODO(bms-current-sensor): Replace this interface implementation with
+     * real current sensor acquisition once hardware and scaling are defined.
+     */
+    class ICurrentSource
+    {
+    public:
+        virtual ~ICurrentSource() = default;
+        virtual float estimate_pack_current_a(const std::array<float, 8> &device1_voltages) const noexcept = 0;
+    };
+
+    /**
+     * Placeholder implementation using Device 1 voltage input as a temporary proxy.
+     */
+    class PlaceholderVoltageCurrentSource final : public ICurrentSource
+    {
+    public:
+        float estimate_pack_current_a(const std::array<float, 8> &device1_voltages) const noexcept override;
     };
 
     struct NormalizerDiagnostics final
@@ -35,12 +57,13 @@ namespace bms
     class NormalizerTask final
     {
     public:
-        using VoltageQueue = InfluxDBTask::VoltageQueue;
-        using TemperatureQueue = InfluxDBTask::TemperatureQueue;
+        using VoltageQueue = SafeQueue<VoltageBatch, VoltageBatchPool::Deleter>;
+        using TemperatureQueue = SafeQueue<TemperatureBatch, TemperatureBatchPool::Deleter>;
         using RowQueue = DBConsumerTask::RowQueue;
 
         NormalizerTask(
             NormalizerConfig cfg,
+            const ICurrentSource &current_source,
             VoltageQueue &voltage_queue,
             TemperatureQueue &temperature_queue,
             RowQueue &soc_queue,
@@ -55,6 +78,8 @@ namespace bms
         const NormalizerDiagnostics &diagnostics() const noexcept { return diag_; }
 
     private:
+        static constexpr std::size_t kPackCellCount = 15;
+
         void consume_temperature_();
         void consume_voltage_and_publish_();
         bool publish_pack_row_();
@@ -73,6 +98,7 @@ namespace bms
         }
 
         NormalizerConfig cfg_;
+        const ICurrentSource &current_source_;
 
         VoltageQueue &voltage_queue_;
         TemperatureQueue &temperature_queue_;
