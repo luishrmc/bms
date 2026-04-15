@@ -9,6 +9,8 @@
 #pragma once
 
 #include "db_consumer.hpp"
+#include "batch_pool.hpp"
+#include "batch_structures.hpp"
 #include "safe_queue.hpp"
 
 #include <boost/atomic.hpp>
@@ -229,6 +231,114 @@ namespace bms
         std::string last_error_;
 
         ProcessedTelemetryWriterDiagnostics diag_{};
+        boost::atomic<std::uint64_t> total_posts_{0};
+        boost::atomic<std::uint64_t> post_failures_{0};
+    };
+
+    struct VoltageCurrentWriterDiagnostics final
+    {
+        boost::atomic<std::uint64_t> rows_written{0};
+        boost::atomic<std::uint64_t> write_failures{0};
+        boost::atomic<std::uint64_t> threshold_flushes{0};
+        boost::atomic<std::uint64_t> timer_flushes{0};
+        boost::atomic<std::uint64_t> dropped_invalid_batches{0};
+    };
+
+    class VoltageCurrentWriterTask final
+    {
+    public:
+        using VoltageQueue = SafeQueue<VoltageBatch, VoltageBatchPool::Deleter>;
+
+        VoltageCurrentWriterTask(
+            InfluxDBConfig cfg,
+            InfluxHTTPClient &client,
+            VoltageQueue &queue);
+
+        VoltageCurrentWriterTask(const VoltageCurrentWriterTask &) = delete;
+        VoltageCurrentWriterTask &operator=(const VoltageCurrentWriterTask &) = delete;
+
+        void operator()();
+
+        std::uint64_t total_posts() const noexcept { return total_posts_.load(); }
+        std::uint64_t total_post_failures() const noexcept { return post_failures_.load(); }
+        const VoltageCurrentWriterDiagnostics &diagnostics() const noexcept { return diag_; }
+        const std::string &last_error() const noexcept { return last_error_; }
+
+    private:
+        static constexpr std::size_t kChannelsPerDevice = kChannelCount / 2;
+
+        void handle_batch_(const VoltageBatch &batch);
+        void append_row_line_();
+        bool flush_buffer_();
+        bool should_flush_threshold_() const noexcept
+        {
+            return (buffered_lines_ >= cfg_.max_lines_per_post) || (buffered_bytes_ >= cfg_.max_bytes_per_post);
+        }
+        bool should_flush_timer_(const boost::chrono::steady_clock::time_point &now) const noexcept
+        {
+            return !buffer_.empty() && (now - last_flush_time_ >= cfg_.max_buffer_age);
+        }
+
+        static std::int64_t to_influxdb_ns_(const std::chrono::system_clock::time_point &tp) noexcept
+        {
+            using namespace std::chrono;
+            return duration_cast<nanoseconds>(tp.time_since_epoch()).count();
+        }
+
+        static void append_int64_(std::string &out, std::int64_t value)
+        {
+            char buf[32];
+            const auto result = std::to_chars(buf, buf + sizeof(buf), value);
+            if (result.ec == std::errc())
+            {
+                out.append(buf, static_cast<std::size_t>(result.ptr - buf));
+                return;
+            }
+            out += std::to_string(value);
+        }
+
+        static void append_float_fixed_(std::string &out, double value, int precision)
+        {
+            char buf[64];
+            const auto result = std::to_chars(
+                buf,
+                buf + sizeof(buf),
+                value,
+                std::chars_format::fixed,
+                precision);
+            if (result.ec == std::errc())
+            {
+                out.append(buf, static_cast<std::size_t>(result.ptr - buf));
+                return;
+            }
+
+            const int count = std::snprintf(buf, sizeof(buf), "%.*f", precision, value);
+            if (count > 0)
+            {
+                const std::size_t len = static_cast<std::size_t>(count);
+                out.append(buf, (len < sizeof(buf)) ? len : sizeof(buf) - 1);
+                return;
+            }
+
+            out += "0.0";
+        }
+
+        InfluxDBConfig cfg_;
+        InfluxHTTPClient &client_;
+        VoltageQueue &queue_;
+        std::string table_name_{"voltage_current"};
+        std::string buffer_;
+        std::size_t buffered_lines_{0};
+        std::size_t buffered_bytes_{0};
+        boost::chrono::steady_clock::time_point last_flush_time_{};
+        std::string last_error_;
+
+        bool has_device1_{false};
+        bool has_device2_{false};
+        VoltageBatch device1_latch_{};
+        VoltageBatch device2_latch_{};
+
+        VoltageCurrentWriterDiagnostics diag_{};
         boost::atomic<std::uint64_t> total_posts_{0};
         boost::atomic<std::uint64_t> post_failures_{0};
     };

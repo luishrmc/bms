@@ -360,4 +360,148 @@ bool ProcessedTelemetryWriterTask::flush_buffer_()
     last_flush_time_ = boost::chrono::steady_clock::now();
     return true;
 }
+
+VoltageCurrentWriterTask::VoltageCurrentWriterTask(
+    InfluxDBConfig cfg,
+    InfluxHTTPClient &client,
+    VoltageQueue &queue)
+    : cfg_(std::move(cfg)), client_(client), queue_(queue)
+{
+    buffer_.reserve(16 * 1024);
+    last_flush_time_ = boost::chrono::steady_clock::now();
+}
+
+void VoltageCurrentWriterTask::operator()()
+{
+    last_error_.clear();
+
+    VoltageBatch *batch = nullptr;
+    while (queue_.try_pop(batch))
+    {
+        if (batch == nullptr)
+        {
+            continue;
+        }
+
+        handle_batch_(*batch);
+        queue_.dispose(batch);
+
+        if (should_flush_threshold_())
+        {
+            diag_.threshold_flushes.fetch_add(1);
+            (void)flush_buffer_();
+        }
+    }
+
+    const auto now = boost::chrono::steady_clock::now();
+    if (should_flush_timer_(now))
+    {
+        diag_.timer_flushes.fetch_add(1);
+        (void)flush_buffer_();
+    }
+}
+
+void VoltageCurrentWriterTask::handle_batch_(const VoltageBatch &batch)
+{
+    if (batch.device_id != 1 && batch.device_id != 2)
+    {
+        diag_.dropped_invalid_batches.fetch_add(1);
+        return;
+    }
+
+    if (any(batch.flags))
+    {
+        diag_.dropped_invalid_batches.fetch_add(1);
+        return;
+    }
+
+    if (batch.device_id == 1)
+    {
+        device1_latch_ = batch;
+        has_device1_ = true;
+    }
+    else
+    {
+        device2_latch_ = batch;
+        has_device2_ = true;
+    }
+
+    if (!has_device1_ || !has_device2_)
+    {
+        return;
+    }
+
+    append_row_line_();
+    has_device1_ = false;
+    has_device2_ = false;
+}
+
+void VoltageCurrentWriterTask::append_row_line_()
+{
+    const auto ts = (device1_latch_.ts.timestamp >= device2_latch_.ts.timestamp)
+                        ? device1_latch_.ts.timestamp
+                        : device2_latch_.ts.timestamp;
+    const std::int64_t ts_ns = to_influxdb_ns_(ts);
+
+    buffer_ += table_name_;
+    buffer_ += " ";
+
+    for (std::size_t i = 0; i < kChannelsPerDevice; ++i)
+    {
+        if (i > 0)
+        {
+            buffer_ += ",";
+        }
+        buffer_ += "cell";
+        buffer_ += std::to_string(i + 1);
+        buffer_ += "_v=";
+        append_float_fixed_(buffer_, device1_latch_.voltages[i], cfg_.voltage_precision);
+    }
+
+    for (std::size_t i = 0; i < kChannelsPerDevice - 1; ++i)
+    {
+        buffer_ += ",cell";
+        buffer_ += std::to_string(i + 9);
+        buffer_ += "_v=";
+        append_float_fixed_(buffer_, device2_latch_.voltages[i], cfg_.voltage_precision);
+    }
+
+    buffer_ += ",current_a=";
+    append_float_fixed_(buffer_, device2_latch_.voltages[kChannelsPerDevice - 1], cfg_.voltage_precision);
+
+    buffer_ += " ";
+    append_int64_(buffer_, ts_ns);
+    buffer_ += "\n";
+
+    ++buffered_lines_;
+    buffered_bytes_ = buffer_.size();
+}
+
+bool VoltageCurrentWriterTask::flush_buffer_()
+{
+    if (buffer_.empty())
+    {
+        return true;
+    }
+
+    std::string err;
+    if (!client_.write_lp(buffer_, err))
+    {
+        post_failures_.fetch_add(1);
+        diag_.write_failures.fetch_add(buffered_lines_);
+        last_error_ = std::move(err);
+        buffer_.clear();
+        buffered_lines_ = 0;
+        buffered_bytes_ = 0;
+        return false;
+    }
+
+    total_posts_.fetch_add(1);
+    diag_.rows_written.fetch_add(buffered_lines_);
+    buffer_.clear();
+    buffered_lines_ = 0;
+    buffered_bytes_ = 0;
+    last_flush_time_ = boost::chrono::steady_clock::now();
+    return true;
+}
 } // namespace bms
