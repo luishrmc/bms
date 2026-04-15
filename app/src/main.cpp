@@ -344,23 +344,24 @@ int main()
 
     try
     {
-        bms::InfluxHTTPClient influx_client(db_cfg);
+        bms::InfluxHTTPClient raw_influx_client(db_cfg);
+        bms::InfluxHTTPClient processed_influx_client(db_cfg);
 
-        std::cout << "[Main] Testing InfluxDB connectivity..." << std::endl;
-        if (!influx_client.ping())
+        std::cout << "[Main] Testing InfluxDB write-endpoint reachability..." << std::endl;
+        if (!raw_influx_client.ping())
         {
-            std::cerr << "  WARNING: Cannot connect to InfluxDB at " << db_cfg.base_url << std::endl;
-            std::cerr << "  Will continue, but writes will fail." << std::endl;
+            std::cerr << "  WARNING: InfluxDB write endpoint probe failed at " << db_cfg.base_url << std::endl;
+            std::cerr << "  Startup will continue; verify write diagnostics after launch." << std::endl;
         }
         else
         {
-            std::cout << "  ✓ Connected to InfluxDB" << std::endl;
+            std::cout << "  ✓ InfluxDB write endpoint is reachable" << std::endl;
         }
 
         std::cout << "[Main] Creating InfluxDB task..." << std::endl;
         bms::InfluxDBTask influx_task(
             db_cfg,
-            influx_client,
+            raw_influx_client,
             voltage_pool,
             temperature_pool,
             voltage_queue,
@@ -375,7 +376,7 @@ int main()
             normalized_persistence_queue);
         bms::ProcessedTelemetryWriterTask processed_telemetry_writer(
             db_cfg,
-            influx_client,
+            processed_influx_client,
             normalized_persistence_queue);
         bms::SoCTask soc_task_worker(soc_cfg, soc_queue);
         bms::SoHTask soh_task_worker(soh_cfg, soh_queue);
@@ -594,11 +595,16 @@ int main()
                 std::cout << "  Temperature in use: " << temperature_pool.in_use_count()
                           << "/" << temperature_pool.preallocated() << std::endl;
 
-                std::cout << "\nHTTP Client Stats:" << std::endl;
-                std::cout << "  Total HTTP posts: " << influx_client.total_posts() << std::endl;
-                std::cout << "  HTTP failures: " << influx_client.total_failures() << std::endl;
-                std::cout << "  HTTP retries: " << influx_client.total_retries() << std::endl;
-                std::cout << "  Last HTTP code: " << influx_client.last_http_code() << std::endl;
+                std::cout << "\nHTTP Client Stats (Raw Writer):" << std::endl;
+                std::cout << "  Total HTTP posts: " << raw_influx_client.total_posts() << std::endl;
+                std::cout << "  HTTP failures: " << raw_influx_client.total_failures() << std::endl;
+                std::cout << "  HTTP retries: " << raw_influx_client.total_retries() << std::endl;
+                std::cout << "  Last HTTP code: " << raw_influx_client.last_http_code() << std::endl;
+                std::cout << "\nHTTP Client Stats (Processed Writer):" << std::endl;
+                std::cout << "  Total HTTP posts: " << processed_influx_client.total_posts() << std::endl;
+                std::cout << "  HTTP failures: " << processed_influx_client.total_failures() << std::endl;
+                std::cout << "  HTTP retries: " << processed_influx_client.total_retries() << std::endl;
+                std::cout << "  Last HTTP code: " << processed_influx_client.last_http_code() << std::endl;
 
                 std::cout << std::endl;
             }
@@ -670,10 +676,14 @@ int main()
         std::cout << "  Temperature samples: " << influx_task.total_temperature_samples() << std::endl;
         std::cout << "  Dropped (flagged): " << influx_task.dropped_flagged_samples() << std::endl;
 
-        std::cout << "\nHTTP Client:" << std::endl;
-        std::cout << "  Total posts: " << influx_client.total_posts() << std::endl;
-        std::cout << "  Failures: " << influx_client.total_failures() << std::endl;
-        std::cout << "  Retries: " << influx_client.total_retries() << std::endl;
+        std::cout << "\nHTTP Client (Raw Writer):" << std::endl;
+        std::cout << "  Total posts: " << raw_influx_client.total_posts() << std::endl;
+        std::cout << "  Failures: " << raw_influx_client.total_failures() << std::endl;
+        std::cout << "  Retries: " << raw_influx_client.total_retries() << std::endl;
+        std::cout << "\nHTTP Client (Processed Writer):" << std::endl;
+        std::cout << "  Total posts: " << processed_influx_client.total_posts() << std::endl;
+        std::cout << "  Failures: " << processed_influx_client.total_failures() << std::endl;
+        std::cout << "  Retries: " << processed_influx_client.total_retries() << std::endl;
 
         std::cout << "\nNormalizer:" << std::endl;
         std::cout << "  Voltage batches consumed: " << normalizer_task_worker.diagnostics().voltage_batches_consumed.load() << std::endl;

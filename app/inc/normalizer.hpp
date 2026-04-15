@@ -58,6 +58,7 @@ namespace bms
         void consume_temperature_();
         void consume_voltage_and_publish_();
         bool publish_pack_row_();
+        void clear_voltage_pair_latches_() noexcept;
 
         static bool has_error_(SampleFlags flags) noexcept
         {
