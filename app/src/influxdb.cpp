@@ -131,17 +131,17 @@ std::string InfluxHTTPClient::make_write_url_() const
         return cfg_.base_url + "/api/v3/write_lp?db=" + cfg_.database + "&precision=ns";
     }
 
-    /** @brief Builds the InfluxDB ping endpoint URL.
- * @return Fully qualified /ping URL.
+    /** @brief Builds the InfluxDB readiness probe URL.
+ * @return Fully qualified write_lp URL for lightweight startup probing.
  */
 std::string InfluxHTTPClient::make_ping_url_() const
     {
-        return cfg_.base_url + "/ping";
+        return make_write_url_();
     }
 
     /**
- * @brief Checks server availability via the /ping endpoint.
- * @return True when the server replies with HTTP 204, otherwise false.
+ * @brief Probes server reachability through the configured write endpoint.
+ * @return True when the endpoint is reachable (HTTP 204 or HTTP 400).
  */
 bool InfluxHTTPClient::ping() noexcept
     {
@@ -149,29 +149,35 @@ bool InfluxHTTPClient::ping() noexcept
 
         std::string url = make_ping_url_();
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 0L);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, discard_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, nullptr);
 
-        CURLcode res = curl_easy_perform(curl);
-
-        curl_easy_setopt(curl, CURLOPT_NOBODY, 0L); // Reset
-
+        const CURLcode res = curl_easy_perform(curl);
         if (res != CURLE_OK)
         {
-            std::cerr << "[InfluxDB] Ping failed: " << curl_easy_strerror(res) << std::endl;
+            std::cerr << "[InfluxDB] Startup probe failed: " << curl_easy_strerror(res) << std::endl;
             return false;
         }
 
         long http_code = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
 
-        if (http_code != 204)
+        if (http_code == 204)
         {
-            std::cerr << "[InfluxDB] Ping returned HTTP " << http_code << std::endl;
-            return false;
+            std::cout << "[InfluxDB] Startup probe succeeded (write endpoint ready)." << std::endl;
+            return true;
         }
 
-        std::cout << "[InfluxDB] Connected to " << cfg_.base_url << std::endl;
-        return true;
+        if (http_code == 400)
+        {
+            std::cout << "[InfluxDB] Startup probe reached write endpoint (HTTP 400 for empty payload)." << std::endl;
+            return true;
+        }
+
+        std::cerr << "[InfluxDB] Startup probe returned HTTP " << http_code << std::endl;
+        return false;
     }
 
     /**

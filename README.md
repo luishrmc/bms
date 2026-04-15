@@ -12,7 +12,7 @@ Key dependencies include:
 
 The repository also includes helper scripts to bootstrap InfluxDB access and schema:
 - `scripts/get_token.sh` to request and save an API token to `config/influxdb3/token.json`
-- `scripts/setup_schema.sh` to create voltage/temperature tables
+- `scripts/setup_schema.sh` to initialize/synchronize `voltage1`, `voltage2`, `temperature`, and `processed_telemetry`
 
 ## Directory structure
 - `app/inc` – C++ headers for core types and modules (`batch_structures.hpp`, pools, queues, Modbus client, voltage/temperature acquisition, InfluxDB interfaces).
@@ -63,7 +63,7 @@ scripts/get_token.sh
 scripts/setup_schema.sh
 ```
 
-These commands generate `config/influxdb3/token.json` and create the voltage/temperature tables used by the logger.
+These commands generate `config/influxdb3/token.json` and initialize the raw + processed telemetry tables used by the logger.
 
 ### Run directly on host (without bms container)
 1. Start InfluxDB 3 and Mosquitto manually (e.g., official Docker images).
@@ -95,6 +95,7 @@ docker compose up --build -d
 ```
 
 This will build the Pi image, start InfluxDB and Mosquitto, execute `entrypoint.sh` (token/schema bootstrap), and then start the BMS application automatically.
+On each container start, `entrypoint.sh` also reruns `scripts/setup_schema.sh` to keep table bootstrap in sync with code updates.
 
 Monitor startup with:
 ```bash

@@ -77,8 +77,14 @@ namespace bms
         InfluxHTTPClient &operator=(const InfluxHTTPClient &) = delete;
 
         /**
-         * Test connectivity to InfluxDB server
-         * @return true if /ping returns 204
+         * Probe InfluxDB reachability using the active write endpoint.
+         *
+         * This check is intentionally lightweight and tolerant of known
+         * probe responses (for example HTTP 400 for an empty Line Protocol
+         * payload) so startup does not report false negatives while writes
+         * can still succeed.
+         *
+         * @return true if the server is reachable on the write endpoint.
          */
         bool ping() noexcept;
 

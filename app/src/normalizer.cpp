@@ -82,15 +82,27 @@ namespace bms
             diag_.voltage_batches_consumed.fetch_add(1);
             voltage_queue_.dispose(batch);
 
-            // Publish pack-level row only after both device halves are available.
+            // Publish one pack-level row per completed device1+device2 pair.
             if (have_device1_ && have_device2_)
             {
                 if (!publish_pack_row_())
                 {
                     diag_.publish_failures.fetch_add(1);
                 }
+
+                // Always clear pair latches after a publish attempt so the next row
+                // requires fresh data from both halves and cannot mix stale values.
+                clear_voltage_pair_latches_();
             }
         }
+    }
+
+    void NormalizerTask::clear_voltage_pair_latches_() noexcept
+    {
+        have_device1_ = false;
+        have_device2_ = false;
+        device1_flags_ = SampleFlags::None;
+        device2_flags_ = SampleFlags::None;
     }
 
     bool NormalizerTask::publish_pack_row_()

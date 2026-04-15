@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # 1. CONFIGURATION
 HOST="influxdb3"
 PORT="8181"
@@ -33,6 +35,11 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   --header 'Content-Type: application/json' \
   --data "{\"db\": \"$DB_NAME\"}")
 
+if [ "$STATUS" -ne 200 ] && [ "$STATUS" -ne 201 ] && [ "$STATUS" -ne 409 ]; then
+    echo "FAILED to create/verify database (status: $STATUS)"
+    exit 1
+fi
+
 # 4. INITIALIZE TABLES (Schema-on-Write)
 echo -e "\nStep 2: Initializing table schemas..."
 
@@ -45,7 +52,7 @@ DL_1_FIELDS="${DL_1_FIELDS%,}"   # trim trailing comma
 DL_1_DATA="voltage1 ${DL_1_FIELDS}"
 
 DL_2_FIELDS=""
-for i in $(seq 8 15); do
+for i in $(seq 0 7); do
   DL_2_FIELDS+="ch${i}=0.0,"
 done
 DL_2_FIELDS="${DL_2_FIELDS%,}"
@@ -58,7 +65,9 @@ done
 T_FIELDS="${T_FIELDS%,}"
 T_DATA="temperature ${T_FIELDS}"
 
-for DATA in "$DL_1_DATA" "$DL_2_DATA" "$T_DATA"; do
+PROCESSED_DATA='processed_telemetry cursor=0u,current_a=0.0,valid=false,voltages="[]",temperatures="[]",status="bootstrap"'
+
+for DATA in "$DL_1_DATA" "$DL_2_DATA" "$T_DATA" "$PROCESSED_DATA"; do
     TABLE=$(echo "$DATA" | awk '{print $1}')
     echo -n "Configuring $TABLE... "
 
@@ -78,4 +87,4 @@ done
 
 echo -e "\n--- Setup Verified and Complete ---"
 echo "Database: $DB_NAME"
-echo "Tables: voltage, temperature, current"
+echo "Tables: voltage1, voltage2, temperature, processed_telemetry"

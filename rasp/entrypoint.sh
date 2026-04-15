@@ -48,10 +48,12 @@ if [[ ! -f "$TOKEN_FILE" ]]; then
     exit 1
   fi
 
-  "$SETUP_SCHEMA_SCRIPT"
 else
-  echo "token.json already exists. Skipping token/schema initialization."
+  echo "token.json already exists. Reusing existing token."
 fi
+
+echo "Running schema synchronization..."
+"$SETUP_SCHEMA_SCRIPT"
 
 echo "Starting BMS..."
 exec /opt/bms/bin/bms
