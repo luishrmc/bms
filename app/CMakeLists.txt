@@ -8,6 +8,7 @@ add_executable(${BMS_EXEC_NAME}
     src/main.cpp
     src/influxdb.cpp
     src/modbus_reader.cpp
+    src/temperature_console.cpp
     src/voltage_current.cpp
     src/db_consumer.cpp
     src/normalizer.cpp

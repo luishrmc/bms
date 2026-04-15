@@ -7,6 +7,7 @@
  */
 
 #include "periodic_task.hpp"
+#include "temperature_console.hpp"
 #include "voltage_current.hpp"
 
 #include <boost/atomic.hpp>
@@ -31,7 +32,7 @@ int main()
     std::signal(SIGTERM, signal_handler);
 
     std::cout << "========================================" << std::endl;
-    std::cout << " BMS Stage 1 Voltage-Current Stabilizer " << std::endl;
+    std::cout << " BMS Stage 2 Console Validation Runtime " << std::endl;
     std::cout << "========================================" << std::endl;
 
     std::cout << "\n[Main] Configuring combined voltage-current acquisition..." << std::endl;
@@ -55,13 +56,29 @@ int main()
     std::cout << "\n[Main] Creating combined acquisition instance..." << std::endl;
     bms::VoltageCurrentAcquisition voltage_current_acquisition(vc_cfg);
 
+    std::cout << "\n[Main] Configuring temperature acquisition..." << std::endl;
+    bms::TemperatureConsoleAcquisitionConfig temp_cfg;
+    temp_cfg.device.host = "192.168.7.201";
+    temp_cfg.device.port = 502;
+    temp_cfg.device.unit_id = 3;
+    temp_cfg.device.connect_retries = 3;
+    temp_cfg.device.read_retries = 2;
+
+    std::cout << "  Temperature device: " << temp_cfg.device.host
+              << ":" << temp_cfg.device.port
+              << " unit_id=" << temp_cfg.device.unit_id << std::endl;
+
+    bms::TemperatureConsoleAcquisition temperature_acquisition(temp_cfg);
+
     try
     {
         std::cout << "\n[Main] Connecting to MODBUS devices..." << std::endl;
-        const bool connected = voltage_current_acquisition.connect();
-        if (!connected)
+        const bool vc_connected = voltage_current_acquisition.connect();
+        const bool temp_connected = temperature_acquisition.connect();
+
+        if (!vc_connected)
         {
-            std::cerr << "  WARNING: One or more devices failed initial connect" << std::endl;
+            std::cerr << "  WARNING: One or more voltage/current devices failed initial connect" << std::endl;
             std::cerr << "    Device 1: " << voltage_current_acquisition.device1_status().last_error << std::endl;
             std::cerr << "    Device 2: " << voltage_current_acquisition.device2_status().last_error << std::endl;
         }
@@ -70,19 +87,33 @@ int main()
             std::cout << "  ✓ Both voltage devices connected" << std::endl;
         }
 
-        std::cout << "\n[Main] Creating periodic task (100 ms)..." << std::endl;
+        if (!temp_connected)
+        {
+            std::cerr << "  WARNING: Temperature device failed initial connect" << std::endl;
+            std::cerr << "    Device T: " << temperature_acquisition.device_status().last_error << std::endl;
+        }
+        else
+        {
+            std::cout << "  ✓ Temperature device connected" << std::endl;
+        }
+
+        std::cout << "\n[Main] Creating periodic tasks (100 ms + 1000 ms)..." << std::endl;
         bms::PeriodicTask voltage_current_task(
-            boost::chrono::milliseconds(50),
+            boost::chrono::milliseconds(100),
             std::ref(voltage_current_acquisition));
+        bms::PeriodicTask temperature_task(
+            boost::chrono::milliseconds(1000),
+            std::ref(temperature_acquisition));
 
         std::cout << "\n========================================" << std::endl;
-        std::cout << "  Starting Stage 1 Runtime" << std::endl;
-        std::cout << "  (Console-only voltage-current validation)" << std::endl;
+        std::cout << "  Starting Stage 2 Runtime" << std::endl;
+        std::cout << "  (Console-only voltage-current + temperature validation)" << std::endl;
         std::cout << "  Press Ctrl+C to stop" << std::endl;
         std::cout << "========================================\n"
                   << std::endl;
 
         voltage_current_task.start();
+        temperature_task.start();
 
         int counter = 0;
         while (g_running)
@@ -91,38 +122,51 @@ int main()
 
             if (++counter % 10 == 0)
             {
-                const auto &diag = voltage_current_acquisition.diagnostics();
-                std::cout << "\n=== Stage 1 Diagnostics (t=" << counter << "s) ===" << std::endl;
-                std::cout << "  Pair attempts: " << diag.pair_attempts.load() << std::endl;
-                std::cout << "  Pair successes: " << diag.pair_successes.load() << std::endl;
-                std::cout << "  Pair failures: " << diag.pair_failures.load() << std::endl;
-                std::cout << "  Device 1 reads: " << diag.device1_successes.load()
-                          << " (failures: " << diag.device1_failures.load() << ")" << std::endl;
-                std::cout << "  Device 2 reads: " << diag.device2_successes.load()
-                          << " (failures: " << diag.device2_failures.load() << ")" << std::endl;
-                std::cout << "  Last cycle duration: " << diag.last_cycle_duration_ms.load() << " ms" << std::endl;
+                const auto &vc_diag = voltage_current_acquisition.diagnostics();
+                const auto &temp_diag = temperature_acquisition.diagnostics();
+                std::cout << "\n=== Stage 2 Diagnostics (t=" << counter << "s) ===" << std::endl;
+                std::cout << "  [VoltageCurrent] pair_attempts=" << vc_diag.pair_attempts.load()
+                          << " pair_successes=" << vc_diag.pair_successes.load()
+                          << " pair_failures=" << vc_diag.pair_failures.load()
+                          << " cycle_ms=" << vc_diag.last_cycle_duration_ms.load() << std::endl;
+                std::cout << "  [VoltageCurrent] device1_ok=" << vc_diag.device1_successes.load()
+                          << " device1_fail=" << vc_diag.device1_failures.load()
+                          << " device2_ok=" << vc_diag.device2_successes.load()
+                          << " device2_fail=" << vc_diag.device2_failures.load() << std::endl;
+                std::cout << "  [Temperature] attempts=" << temp_diag.attempts.load()
+                          << " successes=" << temp_diag.successes.load()
+                          << " failures=" << temp_diag.failures.load()
+                          << " cycle_ms=" << temp_diag.last_cycle_duration_ms.load() << std::endl;
             }
         }
 
         std::cout << "\n[Main] Initiating shutdown sequence..." << std::endl;
 
         voltage_current_task.stop();
+        temperature_task.stop();
         voltage_current_task.join();
+        temperature_task.join();
 
         voltage_current_acquisition.disconnect();
+        temperature_acquisition.disconnect();
 
-        const auto &diag = voltage_current_acquisition.diagnostics();
+        const auto &vc_diag = voltage_current_acquisition.diagnostics();
+        const auto &temp_diag = temperature_acquisition.diagnostics();
         std::cout << "\n========================================" << std::endl;
-        std::cout << "  Final Stage 1 Statistics" << std::endl;
+        std::cout << "  Final Stage 2 Statistics" << std::endl;
         std::cout << "========================================" << std::endl;
 
-        std::cout << "  Pair attempts: " << diag.pair_attempts.load() << std::endl;
-        std::cout << "  Pair successes: " << diag.pair_successes.load() << std::endl;
-        std::cout << "  Pair failures: " << diag.pair_failures.load() << std::endl;
-        std::cout << "  Device 1 reads: " << diag.device1_successes.load()
-                  << " (failures: " << diag.device1_failures.load() << ")" << std::endl;
-        std::cout << "  Device 2 reads: " << diag.device2_successes.load()
-                  << " (failures: " << diag.device2_failures.load() << ")" << std::endl;
+        std::cout << "  [VoltageCurrent] pair_attempts=" << vc_diag.pair_attempts.load()
+                  << " pair_successes=" << vc_diag.pair_successes.load()
+                  << " pair_failures=" << vc_diag.pair_failures.load()
+                  << " device1_ok=" << vc_diag.device1_successes.load()
+                  << " device1_fail=" << vc_diag.device1_failures.load()
+                  << " device2_ok=" << vc_diag.device2_successes.load()
+                  << " device2_fail=" << vc_diag.device2_failures.load() << std::endl;
+        std::cout << "  [Temperature] attempts=" << temp_diag.attempts.load()
+                  << " successes=" << temp_diag.successes.load()
+                  << " failures=" << temp_diag.failures.load()
+                  << " cycle_ms=" << temp_diag.last_cycle_duration_ms.load() << std::endl;
         std::cout << "\n[Main] Clean exit completed." << std::endl;
 
         return 0;
