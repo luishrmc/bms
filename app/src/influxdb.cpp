@@ -46,6 +46,7 @@ namespace bms
     InfluxHTTPClient::InfluxHTTPClient(const InfluxDBConfig &cfg)
         : cfg_(cfg)
     {
+        // Initialize process-global curl state once, then create one easy handle.
         ensure_curl_global_init();
 
         CURL *curl = curl_easy_init();
@@ -56,6 +57,7 @@ namespace bms
 
         curl_ = curl;
 
+        // Apply request defaults shared by ping and write operations.
         const long timeout_ms = static_cast<long>(cfg_.request_timeout.count());
         const long connect_timeout_ms = static_cast<long>(cfg_.connect_timeout.count());
 
@@ -65,6 +67,7 @@ namespace bms
         curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, discard_callback);
 
+        // Build immutable headers once and reuse for every request.
         curl_slist *headers = nullptr;
         headers = curl_slist_append(headers, "Content-Type: text/plain; charset=utf-8");
 
@@ -105,6 +108,7 @@ namespace bms
     {
         CURL *curl = static_cast<CURL *>(curl_);
 
+        // Probe write endpoint with empty payload to validate routing/auth plumbing.
         const std::string url = make_ping_url_();
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
@@ -147,10 +151,12 @@ namespace bms
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.data());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(payload.size()));
 
+        // Configure payload and capture server error body for diagnostics.
         std::string error_response;
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &error_response);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, error_callback);
 
+        // Retry transient transport errors before surfacing failure to caller.
         CURLcode res = CURLE_OK;
         for (int attempt = 0; attempt <= cfg_.max_retries; ++attempt)
         {
@@ -168,6 +174,7 @@ namespace bms
             }
         }
 
+        // Restore default sink callbacks expected by ping and subsequent writes.
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, discard_callback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, nullptr);
 

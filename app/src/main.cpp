@@ -25,6 +25,10 @@
 
 boost::atomic<bool> g_running{true};
 
+/**
+ * @brief Handles process termination signals.
+ * @param Unused signal number.
+ */
 void signal_handler(int)
 {
     std::cout << "\n[Main] Shutdown signal received..." << std::endl;
@@ -57,6 +61,7 @@ std::string get_token()
 
 int main()
 {
+    // Install signal hooks first so every later phase can shutdown cooperatively.
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
 
@@ -64,6 +69,7 @@ int main()
     std::cout << " BMS Simplified Operational Runtime " << std::endl;
     std::cout << "========================================" << std::endl;
 
+    // Create one queue pair per downstream consumer to keep processing paths decoupled.
     bms::DBPublisherTask::VoltageQueue db_voltage_queue(2048);
     bms::DBPublisherTask::TemperatureQueue db_temperature_queue(512);
     bms::SoCTask::VoltageQueue soc_voltage_queue(2048);
@@ -71,6 +77,7 @@ int main()
     bms::SoHTask::VoltageQueue soh_voltage_queue(2048);
     bms::SoHTask::TemperatureQueue soh_temperature_queue(512);
 
+    // Fan out each voltage/current sample into independent queue ownership domains.
     auto publish_voltage_sample = [&](const bms::VoltageCurrentSample &sample) {
         auto *db_copy = new bms::VoltageCurrentSample(sample);
         if (!db_voltage_queue.push_blocking(db_copy))
@@ -91,6 +98,7 @@ int main()
         }
     };
 
+    // Fan out each temperature sample into independent queue ownership domains.
     auto publish_temperature_sample = [&](const bms::TemperatureSample &sample) {
         auto *db_copy = new bms::TemperatureSample(sample);
         if (!db_temperature_queue.push_blocking(db_copy))
@@ -111,6 +119,7 @@ int main()
         }
     };
 
+    // Build acquisition task configurations for the two MODBUS acquisition paths.
     bms::VoltageCurrentAcquisitionConfig vc_cfg;
     vc_cfg.device1.host = "192.168.7.2";
     vc_cfg.device1.port = 502;
@@ -139,6 +148,7 @@ int main()
     bms::TemperatureAcquisition temperature_acquisition(temp_cfg);
     temperature_acquisition.set_sample_callback(publish_temperature_sample);
 
+    // Resolve InfluxDB credentials from environment first, then JSON token file.
     bms::InfluxDBConfig influx_cfg;
     if (const char *token = std::getenv("INFLUXDB3_TOKEN"))
     {
@@ -163,6 +173,7 @@ int main()
 
     try
     {
+        // Establish initial connectivity before worker threads start.
         std::cout << "\n[Main] Connecting to MODBUS devices..." << std::endl;
         const bool vc_connected = voltage_current_acquisition.connect();
         const bool temp_connected = temperature_acquisition.connect();
@@ -180,6 +191,7 @@ int main()
             std::cerr << "    Device T: " << temperature_acquisition.device_status().last_error << std::endl;
         }
 
+        // Start periodic producers and long-running consumer threads.
         std::cout << "\n[Main] Creating tasks and worker threads..." << std::endl;
         bms::PeriodicTask voltage_current_task(boost::chrono::milliseconds(100), std::ref(voltage_current_acquisition));
         bms::PeriodicTask temperature_task(boost::chrono::milliseconds(1000), std::ref(temperature_acquisition));
@@ -191,6 +203,7 @@ int main()
         voltage_current_task.start();
         temperature_task.start();
 
+        // Emit periodic operational diagnostics while the runtime remains active.
         int counter = 0;
         while (g_running)
         {
@@ -233,6 +246,7 @@ int main()
             }
         }
 
+        // Shutdown sequence: stop producers, close queues, join workers, then disconnect IO.
         std::cout << "\n[Main] Initiating shutdown sequence..." << std::endl;
 
         voltage_current_task.stop();

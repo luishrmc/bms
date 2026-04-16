@@ -1,3 +1,8 @@
+/**
+ * @file voltage_current.cpp
+ * @brief Dual-device voltage/current acquisition and channel mapping implementation.
+ */
+
 #include "voltage_current.hpp"
 
 #include <boost/chrono.hpp>
@@ -118,10 +123,12 @@ namespace bms
 
     void VoltageCurrentAcquisition::operator()()
     {
+        // Measure cycle latency for periodic diagnostics.
         const auto cycle_start = boost::chrono::steady_clock::now();
 
         diagnostics_.pair_attempts.fetch_add(1);
 
+        // Read one full register block from each voltage/current endpoint.
         std::array<std::uint16_t, kRegisterBlockCount> regs1{};
         std::array<std::uint16_t, kRegisterBlockCount> regs2{};
 
@@ -151,6 +158,7 @@ namespace bms
             sample.sequence = sequence_;
             sample.timestamp = std::chrono::system_clock::now();
 
+            // Map both register blocks into the unified 15-cell sample layout.
             // Exact mapping required for stage stabilization:
             // Device 1 ch0..7  -> cell1..cell8
             // Device 2 ch0..6  -> cell9..cell15
@@ -163,6 +171,7 @@ namespace bms
             {
                 sample.cell_voltages[8 + i] = decode_channel_(regs2, i);
             }
+            // Decode selected current source channel and convert volts -> amperes.
             if (cfg_.current_source_channel < 8)
             {
                 sample.raw_current_sensor_v = decode_channel_(regs2, cfg_.current_source_channel);
@@ -182,6 +191,7 @@ namespace bms
 
             if (on_sample_)
             {
+                // Deliver sample to fan-out callback used by queue publishers.
                 on_sample_(sample);
             }
         }
@@ -194,6 +204,7 @@ namespace bms
             }
         }
 
+        // Advance sequence even on failed pair reads for consistent diagnostics.
         ++sequence_;
 
         const auto cycle_end = boost::chrono::steady_clock::now();
@@ -201,6 +212,7 @@ namespace bms
             cycle_end - cycle_start);
         diagnostics_.last_cycle_duration_ms.store(cycle_duration.count());
 
+        // Emit aggregated diagnostics at configured cycle intervals.
         if (cfg_.diagnostics_every_cycles > 0 &&
             (sequence_ % cfg_.diagnostics_every_cycles) == 0)
         {

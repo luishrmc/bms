@@ -1,9 +1,6 @@
 /**
- * @file        safe_queue.hpp
- * @author      Luis Maciel (luishrm@ufmg.br)
- * @brief       Header file for the BMS data-logger module.
- * @version     0.0.1
- * @date        2026-03-25
+ * @file safe_queue.hpp
+ * @brief Lock-free pointer queue with close-aware blocking and ownership transfer semantics.
  */
 
 #pragma once
@@ -22,8 +19,10 @@
 namespace bms
 {
 
-    // Default disposal policy: delete the object.
-    // If you use an object pool, pass a custom Disposer that returns to the pool.
+    /**
+     * @brief Default pointer disposer used by @ref SafeQueue.
+     * @note Replace with a custom policy for pooled allocation strategies.
+     */
     template <typename T>
     struct default_disposer
     {
@@ -31,19 +30,10 @@ namespace bms
     };
 
     /**
-     * SafeQueue<T, Disposer>
-     *
-     * MPSC (multi-producer / single-consumer) lock-free pointer queue.
-     *
-     * - Stores pointers (T*) to avoid large copies.
-     * - Fixed capacity (required by boost::lockfree::queue).
-     * - Supports non-blocking and condition-variable-backed blocking operations.
-     * - Explicit close() for clean shutdown; close wakes waiters.
-     * - Disposal policy is configurable to support pools safely.
-     *
-     * Ownership contract:
-     * - If push()/push_blocking()/push_for() succeeds, ownership transfers to the queue/consumer.
-     * - If a push operation returns false, caller still owns the pointer and must dispose it.
+     * @brief MPSC lock-free queue for pointer payloads with shutdown-aware waits.
+     * @tparam T Object type stored by pointer.
+     * @tparam Disposer Callable used to release pointers after consumption.
+     * @details Ownership is transferred to the queue only on successful push.
      */
     template <typename T, typename Disposer = default_disposer<T>>
     class SafeQueue final

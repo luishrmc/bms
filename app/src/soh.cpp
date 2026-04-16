@@ -1,3 +1,8 @@
+/**
+ * @file soh.cpp
+ * @brief SoH interface task that aligns voltage frames with latest temperature context.
+ */
+
 #include "soh.hpp"
 
 #include <chrono>
@@ -18,6 +23,7 @@ namespace bms
 
         while (true)
         {
+            // Wait primarily on voltage/current cadence while opportunistically draining temperature.
             bool got_voltage = false;
             if (voltage_queue_.try_pop(vc_ptr))
             {
@@ -33,6 +39,7 @@ namespace bms
                 got_voltage = voltage_queue_.wait_for_and_pop(vc_ptr, std::chrono::milliseconds(250));
                 if (!got_voltage)
                 {
+                    // Keep only the latest temperature snapshot between voltage frames.
                     while (temperature_queue_.try_pop(temp_ptr))
                     {
                         latest_temperature_ = *temp_ptr;
@@ -44,6 +51,7 @@ namespace bms
                 }
             }
 
+            // Update latest temperature context before processing the current voltage sample.
             while (temperature_queue_.try_pop(temp_ptr))
             {
                 latest_temperature_ = *temp_ptr;
@@ -54,8 +62,7 @@ namespace bms
 
             if (vc_ptr != nullptr)
             {
-                // Process every voltage/current sample in FIFO order and attach the
-                // most recent temperature context available at this point.
+                // Process voltage sample in FIFO order with most recent temperature context.
                 diag_.frames_observed += 1;
                 diag_.last_voltage_sequence = vc_ptr->sequence;
 

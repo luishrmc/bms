@@ -1,3 +1,8 @@
+/**
+ * @file db_publisher.cpp
+ * @brief Implementation of queue-driven InfluxDB line protocol batching and flush logic.
+ */
+
 #include "db_publisher.hpp"
 
 #include <charconv>
@@ -62,6 +67,7 @@ namespace bms
 
     void DBPublisherTask::operator()()
     {
+        // Aggregate rows into a reusable payload buffer to reduce allocations.
         std::string payload;
         payload.reserve(cfg_.max_payload_bytes);
 
@@ -71,6 +77,7 @@ namespace bms
 
         while (true)
         {
+            // Prefer immediate non-blocking drains before waiting on the voltage queue.
             if (voltage_queue_.try_pop(vc_ptr))
             {
             }
@@ -83,6 +90,7 @@ namespace bms
                 {
                     break;
                 }
+                // No immediate work: flush on timer and keep the loop responsive to shutdown.
                 const bool got_voltage = voltage_queue_.wait_for_and_pop(vc_ptr, cfg_.flush_interval);
                 if (!got_voltage)
                 {
@@ -98,6 +106,7 @@ namespace bms
                 }
             }
 
+            // Serialize and release popped voltage sample ownership.
             if (vc_ptr != nullptr && append_voltage_row_(payload, *vc_ptr))
             {
                 diagnostics_.voltage_rows_written += 1;
@@ -109,6 +118,7 @@ namespace bms
                 vc_ptr = nullptr;
             }
 
+            // Serialize and release popped temperature sample ownership.
             if (temp_ptr != nullptr && append_temperature_row_(payload, *temp_ptr))
             {
                 diagnostics_.temperature_rows_written += 1;
@@ -120,6 +130,7 @@ namespace bms
                 temp_ptr = nullptr;
             }
 
+            // Drain backlog batches to maximize each HTTP payload.
             while (temperature_queue_.try_pop(temp_ptr))
             {
                 if (append_temperature_row_(payload, *temp_ptr))
@@ -142,6 +153,7 @@ namespace bms
                 vc_ptr = nullptr;
             }
 
+            // Trigger threshold-based flush when line count or payload bytes exceed limits.
             const bool exceed_lines = lines_in_payload >= cfg_.max_lines_per_post;
             const bool exceed_bytes = payload.size() >= cfg_.max_payload_bytes;
             if (exceed_lines || exceed_bytes)
@@ -155,6 +167,7 @@ namespace bms
             }
         }
 
+        // After queue closure, drain remaining temperature data then perform final flush.
         while (temperature_queue_.try_pop(temp_ptr))
         {
             if (append_temperature_row_(payload, *temp_ptr))

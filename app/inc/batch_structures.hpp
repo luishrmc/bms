@@ -1,9 +1,6 @@
 /**
- * @file        batch_structures.hpp
- * @author      Luis Maciel (luishrm@ufmg.br)
- * @brief       Header file for the BMS data-logger module.
- * @version     0.0.1
- * @date        2026-03-25
+ * @file batch_structures.hpp
+ * @brief Shared sample structures, MODBUS decode helpers, and validation utilities.
  */
 
 #pragma once
@@ -34,6 +31,9 @@ namespace bms
     // Diagnostic Flags
     // ============================================================================
 
+    /**
+     * @brief Bit flags describing decode/transport/validation anomalies.
+     */
     enum class SampleFlags : std::uint32_t
     {
         None = 0u,
@@ -64,6 +64,9 @@ namespace bms
     // Device Timestamp Structure
     // ============================================================================
 
+    /**
+     * @brief Device-provided timestamp components and derived host time point.
+     */
     struct DeviceTimestamp final
     {
         std::uint32_t device_epoch{0};  // Seconds since 2000-01-01
@@ -76,6 +79,9 @@ namespace bms
     // Batch Structures
     // ============================================================================
 
+    /**
+     * @brief Raw decoded half-pack voltage channels from one MODBUS device.
+     */
     struct VoltageBatch final
     {
         DeviceTimestamp ts{};
@@ -85,6 +91,9 @@ namespace bms
         SampleFlags flags{SampleFlags::None};
     };
 
+    /**
+     * @brief Raw decoded temperature channels from one MODBUS device.
+     */
     struct TemperatureBatch final
     {
         DeviceTimestamp ts{};
@@ -94,6 +103,9 @@ namespace bms
     };
 
 
+    /**
+     * @brief Unified downstream sample containing 15 cell voltages and pack current.
+     */
     struct VoltageCurrentSample final
     {
         std::chrono::system_clock::time_point timestamp{};
@@ -103,6 +115,9 @@ namespace bms
         std::uint64_t sequence{0};
     };
 
+    /**
+     * @brief Unified downstream sample containing 16 temperature channels.
+     */
     struct TemperatureSample final
     {
         std::chrono::system_clock::time_point timestamp{};
@@ -114,6 +129,10 @@ namespace bms
     // Timestamp Conversion
     // ============================================================================
 
+    /**
+     * @brief Converts device epoch components into a system clock time point.
+     * @note Current implementation returns @c now() while integration is stabilized.
+     */
     inline std::chrono::system_clock::time_point device_epoch_to_timepoint(
         std::uint32_t device_epoch_seconds,
         std::uint16_t subseconds_ms) noexcept
@@ -123,6 +142,9 @@ namespace bms
         return std::chrono::system_clock::now();
     }
 
+    /**
+     * @brief Converts a system-clock timestamp to Unix nanoseconds.
+     */
     inline std::int64_t to_influxdb_ns(std::chrono::system_clock::time_point tp) noexcept
     {
         using namespace std::chrono;

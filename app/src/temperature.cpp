@@ -1,3 +1,8 @@
+/**
+ * @file temperature.cpp
+ * @brief Temperature acquisition cycle implementation for a 16-channel MODBUS source.
+ */
+
 #include "temperature.hpp"
 
 #include <boost/chrono.hpp>
@@ -98,10 +103,12 @@ namespace bms
 
     void TemperatureAcquisition::operator()()
     {
+        // Measure end-to-end cycle latency for diagnostics.
         const auto cycle_start = boost::chrono::steady_clock::now();
 
         diagnostics_.attempts.fetch_add(1);
 
+        // Read the canonical register block and decode all channels when successful.
         std::array<std::uint16_t, kRegisterBlockCount> regs{};
         const bool read_ok = device_.read_bms_block(regs);
 
@@ -123,6 +130,7 @@ namespace bms
 
             if (on_sample_)
             {
+                // Publish decoded sample to downstream fan-out callback.
                 on_sample_(sample);
             }
         }
@@ -135,6 +143,7 @@ namespace bms
             }
         }
 
+        // Advance sequence even on failed reads to preserve attempt chronology.
         ++sequence_;
 
         const auto cycle_end = boost::chrono::steady_clock::now();
@@ -142,6 +151,7 @@ namespace bms
             cycle_end - cycle_start);
         diagnostics_.last_cycle_duration_ms.store(cycle_duration.count());
 
+        // Emit summary diagnostics at configured cycle intervals.
         if (cfg_.diagnostics_every_cycles > 0 &&
             (sequence_ % cfg_.diagnostics_every_cycles) == 0)
         {
