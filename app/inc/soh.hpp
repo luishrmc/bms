@@ -8,23 +8,19 @@
 
 #pragma once
 
-#include "measurement_bus.hpp"
+#include "batch_structures.hpp"
+#include "safe_queue.hpp"
 
 #include <cstdint>
+#include <optional>
 
 namespace bms
 {
-    /**
-     * @brief Configuration for periodic SoH row-consumer behavior.
-     */
     struct SoHTaskConfig final
     {
         bool enable_diagnostics_logging{true};
     };
 
-    /**
-     * @brief SoH task diagnostics.
-     */
     struct SoHTaskDiagnostics final
     {
         std::uint64_t frames_observed{0};
@@ -33,27 +29,26 @@ namespace bms
         std::uint64_t last_temperature_sequence{0};
     };
 
-    /**
-     * @brief Row-by-row SoH processing task with injectable estimator strategy.
-     */
     class SoHTask final
     {
     public:
-        SoHTask(SoHTaskConfig cfg, const MeasurementBus &input_bus);
+        using VoltageQueue = SafeQueue<VoltageCurrentSample>;
+        using TemperatureQueue = SafeQueue<TemperatureSample>;
+
+        SoHTask(SoHTaskConfig cfg, VoltageQueue &voltage_queue, TemperatureQueue &temperature_queue);
 
         SoHTask(const SoHTask &) = delete;
         SoHTask &operator=(const SoHTask &) = delete;
 
-        /** @brief Periodic work loop entry-point. */
         void operator()();
 
         const SoHTaskDiagnostics &diagnostics() const noexcept { return diag_; }
 
     private:
         SoHTaskConfig cfg_;
-        const MeasurementBus &input_bus_;
-        std::uint64_t last_seen_voltage_sequence_{0};
-        std::uint64_t last_seen_temperature_sequence_{0};
+        VoltageQueue &voltage_queue_;
+        TemperatureQueue &temperature_queue_;
+        std::optional<TemperatureSample> latest_temperature_{};
         SoHTaskDiagnostics diag_{};
     };
 

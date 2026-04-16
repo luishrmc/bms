@@ -8,9 +8,11 @@
 
 #pragma once
 
-#include "measurement_bus.hpp"
+#include "batch_structures.hpp"
+#include "safe_queue.hpp"
 
 #include <cstdint>
+#include <optional>
 
 namespace bms
 {
@@ -30,7 +32,10 @@ namespace bms
     class SoCTask final
     {
     public:
-        SoCTask(SoCTaskConfig cfg, const MeasurementBus &input_bus);
+        using VoltageQueue = SafeQueue<VoltageCurrentSample>;
+        using TemperatureQueue = SafeQueue<TemperatureSample>;
+
+        SoCTask(SoCTaskConfig cfg, VoltageQueue &voltage_queue, TemperatureQueue &temperature_queue);
 
         SoCTask(const SoCTask &) = delete;
         SoCTask &operator=(const SoCTask &) = delete;
@@ -40,9 +45,9 @@ namespace bms
 
     private:
         SoCTaskConfig cfg_;
-        const MeasurementBus &input_bus_;
-        std::uint64_t last_seen_voltage_sequence_{0};
-        std::uint64_t last_seen_temperature_sequence_{0};
+        VoltageQueue &voltage_queue_;
+        TemperatureQueue &temperature_queue_;
+        std::optional<TemperatureSample> latest_temperature_{};
         SoCTaskDiagnostics diag_{};
     };
 

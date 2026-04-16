@@ -8,13 +8,14 @@
 
 #pragma once
 
-#include <boost/lockfree/queue.hpp>
 #include <boost/atomic.hpp>
-#include <boost/chrono.hpp>
-#include <boost/thread/thread.hpp>
+#include <boost/lockfree/queue.hpp>
 
+#include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <type_traits>
 #include <utility>
 
@@ -32,22 +33,17 @@ namespace bms
     /**
      * SafeQueue<T, Disposer>
      *
-     * MPSC (multi-producer / single-consumer) lock-free pointer queue for BMS batches.
+     * MPSC (multi-producer / single-consumer) lock-free pointer queue.
      *
-     * - Stores pointers (T*) to avoid copying large batch payloads.
+     * - Stores pointers (T*) to avoid large copies.
      * - Fixed capacity (required by boost::lockfree::queue).
-     * - Non-blocking push/pop; provides pop_for() with cooperative yielding.
-     * - Explicit close() for clean shutdown.
+     * - Supports non-blocking and condition-variable-backed blocking operations.
+     * - Explicit close() for clean shutdown; close wakes waiters.
      * - Disposal policy is configurable to support pools safely.
      *
-     * Requirements:
-     * - T is your payload type (e.g., VoltageBatch or TemperatureBatch).
-     * - Producers allocate/acquire T*, fill it, then push().
-     * - Consumer pops T*, processes it, then calls dispose(p) or lets caller handle it.
-     *
      * Ownership contract:
-     * - If push() succeeds, ownership transfers to the queue/consumer.
-     * - If push() fails (queue full or closed), the producer still owns the pointer and must dispose it.
+     * - If push()/push_blocking()/push_for() succeeds, ownership transfers to the queue/consumer.
+     * - If a push operation returns false, caller still owns the pointer and must dispose it.
      */
     template <typename T, typename Disposer = default_disposer<T>>
     class SafeQueue final
@@ -62,7 +58,6 @@ namespace bms
               disposer_(std::move(disposer)),
               capacity_(capacity)
         {
-            // boost::lockfree::queue requires trivially copyable element type.
             static_assert(std::is_trivially_copyable<pointer>::value,
                           "Queue element type must be trivially copyable.");
         }
@@ -72,7 +67,7 @@ namespace bms
 
         ~SafeQueue() noexcept
         {
-            // Drain safely using the disposer policy (delete by default, or return to pool).
+            close();
             pointer p = nullptr;
             while (queue_.pop(p))
             {
@@ -80,10 +75,11 @@ namespace bms
             }
         }
 
-        // Close the queue: producers should stop pushing; consumer can drain remaining items.
         void close() noexcept
         {
             closed_.store(true, boost::memory_order_release);
+            cv_not_empty_.notify_all();
+            cv_not_full_.notify_all();
         }
 
         bool is_closed() const noexcept
@@ -91,10 +87,6 @@ namespace bms
             return closed_.load(boost::memory_order_acquire);
         }
 
-        /**
-         * Push a batch pointer (non-blocking).
-         * @return true if enqueued, false if queue full or closed.
-         */
         bool push(pointer p) noexcept
         {
             if (p == nullptr)
@@ -106,58 +98,137 @@ namespace bms
                 dropped_.fetch_add(1, boost::memory_order_relaxed);
                 return false;
             }
+
             if (queue_.push(p))
             {
-                const std::uint64_t pushed_now = pushed_.fetch_add(1, boost::memory_order_relaxed) + 1;
-                const std::uint64_t popped_now = popped_.load(boost::memory_order_relaxed);
-                const std::uint64_t approx_now = (pushed_now > popped_now) ? (pushed_now - popped_now) : 0;
-                update_peak_size_(approx_now);
+                on_push_success_();
                 return true;
             }
+
             dropped_.fetch_add(1, boost::memory_order_relaxed);
             return false;
         }
 
-        /**
-         * Pop a batch pointer (non-blocking).
-         * @return true if dequeued, false if empty.
-         */
+        bool push_blocking(pointer p) noexcept
+        {
+            if (p == nullptr)
+            {
+                return false;
+            }
+
+            for (;;)
+            {
+                if (is_closed())
+                {
+                    dropped_.fetch_add(1, boost::memory_order_relaxed);
+                    return false;
+                }
+
+                if (queue_.push(p))
+                {
+                    on_push_success_();
+                    return true;
+                }
+
+                std::unique_lock<std::mutex> lock(cv_mutex_);
+                cv_not_full_.wait(lock, [this] {
+                    return is_closed() || approximate_size() < capacity_;
+                });
+            }
+        }
+
+        template <typename Rep, typename Period>
+        bool push_for(pointer p, const std::chrono::duration<Rep, Period> &timeout) noexcept
+        {
+            if (p == nullptr)
+            {
+                return false;
+            }
+
+            const auto deadline = std::chrono::steady_clock::now() + timeout;
+            for (;;)
+            {
+                if (is_closed())
+                {
+                    dropped_.fetch_add(1, boost::memory_order_relaxed);
+                    return false;
+                }
+
+                if (queue_.push(p))
+                {
+                    on_push_success_();
+                    return true;
+                }
+
+                std::unique_lock<std::mutex> lock(cv_mutex_);
+                if (!cv_not_full_.wait_until(lock, deadline, [this] {
+                        return is_closed() || approximate_size() < capacity_;
+                    }))
+                {
+                    dropped_.fetch_add(1, boost::memory_order_relaxed);
+                    return false;
+                }
+            }
+        }
+
         bool try_pop(pointer &out) noexcept
         {
             if (queue_.pop(out))
             {
                 popped_.fetch_add(1, boost::memory_order_relaxed);
+                cv_not_full_.notify_one();
                 return true;
             }
             return false;
         }
 
-        /**
-         * Pop with a cooperative timeout (non-blocking queue + yield loop).
-         * This avoids a tight spin while still keeping the queue lock-free.
-         *
-         * @return true if popped within timeout, false otherwise.
-         */
-        bool pop_for(pointer &out, const boost::chrono::milliseconds &timeout) noexcept
+        bool wait_and_pop(pointer &out) noexcept
         {
-            const auto start = boost::chrono::steady_clock::now();
-            while (boost::chrono::steady_clock::now() - start < timeout)
+            for (;;)
             {
                 if (try_pop(out))
                 {
                     return true;
                 }
+
                 if (is_closed())
                 {
-                    // If closed and empty, do not wait the entire timeout.
                     return false;
                 }
-                boost::this_thread::yield();
+
+                std::unique_lock<std::mutex> lock(cv_mutex_);
+                cv_not_empty_.wait(lock, [this] {
+                    return is_closed() || approximate_size() > 0;
+                });
             }
-            return false;
         }
 
-        // Diagnostics (approximate).
+        template <typename Rep, typename Period>
+        bool wait_for_and_pop(pointer &out, const std::chrono::duration<Rep, Period> &timeout) noexcept
+        {
+            const auto deadline = std::chrono::steady_clock::now() + timeout;
+            for (;;)
+            {
+                if (try_pop(out))
+                {
+                    return true;
+                }
+
+                if (is_closed())
+                {
+                    return false;
+                }
+
+                std::unique_lock<std::mutex> lock(cv_mutex_);
+                if (!cv_not_empty_.wait_until(lock, deadline, [this] {
+                        return is_closed() || approximate_size() > 0;
+                    }))
+                {
+                    return try_pop(out);
+                }
+            }
+        }
+
         std::uint64_t dropped_count() const noexcept
         {
             return dropped_.load(boost::memory_order_relaxed);
@@ -185,10 +256,6 @@ namespace bms
             return peak_size_.load(boost::memory_order_relaxed);
         }
 
-        /**
-         * Convenience disposal hook for callers who want the queue to define
-         * the correct disposal policy (delete vs pool release).
-         */
         void dispose(pointer p) noexcept
         {
             if (p != nullptr)
@@ -199,12 +266,19 @@ namespace bms
 
         std::size_t capacity() const noexcept
         {
-            // Boost lockfree doesn't expose this directly,
-            // so document it or pass as constructor param
             return capacity_;
         }
 
     private:
+        void on_push_success_() noexcept
+        {
+            const std::uint64_t pushed_now = pushed_.fetch_add(1, boost::memory_order_relaxed) + 1;
+            const std::uint64_t popped_now = popped_.load(boost::memory_order_relaxed);
+            const std::uint64_t approx_now = (pushed_now > popped_now) ? (pushed_now - popped_now) : 0;
+            update_peak_size_(approx_now);
+            cv_not_empty_.notify_one();
+        }
+
         void update_peak_size_(std::uint64_t candidate) noexcept
         {
             std::uint64_t current_peak = peak_size_.load(boost::memory_order_relaxed);
@@ -215,13 +289,16 @@ namespace bms
                        boost::memory_order_relaxed,
                        boost::memory_order_relaxed))
             {
-                // retry with refreshed current_peak
             }
         }
 
         boost::lockfree::queue<pointer> queue_;
         Disposer disposer_;
         std::size_t capacity_;
+
+        mutable std::mutex cv_mutex_;
+        std::condition_variable cv_not_empty_;
+        std::condition_variable cv_not_full_;
 
         boost::atomic<bool> closed_{false};
         boost::atomic<std::uint64_t> dropped_{0};

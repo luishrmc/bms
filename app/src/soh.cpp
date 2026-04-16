@@ -1,45 +1,86 @@
 #include "soh.hpp"
 
+#include <chrono>
 #include <iostream>
 #include <utility>
 
 namespace bms
 {
-    SoHTask::SoHTask(SoHTaskConfig cfg, const MeasurementBus &input_bus)
-        : cfg_(std::move(cfg)), input_bus_(input_bus)
+    SoHTask::SoHTask(SoHTaskConfig cfg, VoltageQueue &voltage_queue, TemperatureQueue &temperature_queue)
+        : cfg_(std::move(cfg)), voltage_queue_(voltage_queue), temperature_queue_(temperature_queue)
     {
     }
 
     void SoHTask::operator()()
     {
-        const MeasurementFrame frame = input_bus_.latest();
+        VoltageCurrentSample *vc_ptr = nullptr;
+        TemperatureSample *temp_ptr = nullptr;
 
-        if (!frame.voltage_current.has_value() || !frame.temperature.has_value())
+        while (true)
         {
-            return;
-        }
+            bool got_voltage = false;
+            if (voltage_queue_.try_pop(vc_ptr))
+            {
+                got_voltage = true;
+            }
+            else
+            {
+                if (voltage_queue_.is_closed() && temperature_queue_.is_closed())
+                {
+                    break;
+                }
 
-        const auto &vc = frame.voltage_current.value();
-        const auto &temp = frame.temperature.value();
+                got_voltage = voltage_queue_.wait_for_and_pop(vc_ptr, std::chrono::milliseconds(250));
+                if (!got_voltage)
+                {
+                    while (temperature_queue_.try_pop(temp_ptr))
+                    {
+                        latest_temperature_ = *temp_ptr;
+                        diag_.last_temperature_sequence = temp_ptr->sequence;
+                        temperature_queue_.dispose(temp_ptr);
+                        temp_ptr = nullptr;
+                    }
+                    continue;
+                }
+            }
 
-        if (vc.sequence == last_seen_voltage_sequence_ &&
-            temp.sequence == last_seen_temperature_sequence_)
-        {
-            return;
-        }
+            while (temperature_queue_.try_pop(temp_ptr))
+            {
+                latest_temperature_ = *temp_ptr;
+                diag_.last_temperature_sequence = temp_ptr->sequence;
+                temperature_queue_.dispose(temp_ptr);
+                temp_ptr = nullptr;
+            }
 
-        last_seen_voltage_sequence_ = vc.sequence;
-        last_seen_temperature_sequence_ = temp.sequence;
+            if (vc_ptr != nullptr)
+            {
+                // Process every voltage/current sample in FIFO order and attach the
+                // most recent temperature context available at this point.
+                diag_.frames_observed += 1;
+                diag_.last_voltage_sequence = vc_ptr->sequence;
 
-        diag_.frames_observed += 1;
-        diag_.frames_with_both_measurements += 1;
-        diag_.last_voltage_sequence = vc.sequence;
-        diag_.last_temperature_sequence = temp.sequence;
+                if (latest_temperature_.has_value())
+                {
+                    diag_.frames_with_both_measurements += 1;
+                }
 
-        if (cfg_.enable_diagnostics_logging)
-        {
-            std::cout << "[SoH][interface] received frame vc_seq=" << vc.sequence
-                      << " temp_seq=" << temp.sequence << std::endl;
+                if (cfg_.enable_diagnostics_logging)
+                {
+                    std::cout << "[SoH][interface] consumed vc_seq=" << vc_ptr->sequence;
+                    if (latest_temperature_.has_value())
+                    {
+                        std::cout << " temp_seq=" << latest_temperature_->sequence;
+                    }
+                    else
+                    {
+                        std::cout << " temp_seq=none";
+                    }
+                    std::cout << std::endl;
+                }
+
+                voltage_queue_.dispose(vc_ptr);
+                vc_ptr = nullptr;
+            }
         }
     }
 
