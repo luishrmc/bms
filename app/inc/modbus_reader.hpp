@@ -75,12 +75,6 @@ namespace bms
          */
         bool read_bms_block(std::array<std::uint16_t, kRegisterBlockCount> &out_regs);
 
-        /**
-         * High-level batch read (MODBUS + population + error mapping).
-         */
-        SampleFlags read_voltage_batch(VoltageBatch &batch);
-        SampleFlags read_temperature_batch(TemperatureBatch &batch);
-
         void set_response_timeout(std::chrono::milliseconds timeout);
         void set_byte_timeout(std::chrono::milliseconds timeout);
 

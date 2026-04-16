@@ -202,52 +202,6 @@ bool ModbusTcpClient::read_bms_block(
             out_regs.data());
     }
 
-    /**
- * @brief Performs a full MODBUS read and populates one voltage batch.
- * @param[out] batch Batch populated with timestamp and channel voltages in volts (V).
- * @return SampleFlags::None on success or an error flag (e.g., CommError).
- */
-SampleFlags ModbusTcpClient::read_voltage_batch(VoltageBatch &batch)
-    {
-        std::array<std::uint16_t, kRegisterBlockCount> registers;
-
-        if (!read_bms_block(registers))
-        {
-            batch.flags = SampleFlags::CommError;
-            batch.ts.valid = false;
-            return SampleFlags::CommError;
-        }
-
-        // Type-safe call - array passed by reference
-        populate_voltage_batch(batch, registers);
-        batch.flags = SampleFlags::None;
-
-        return SampleFlags::None;
-    }
-
-    /**
- * @brief Performs a full MODBUS read and populates one temperature batch.
- * @param[out] batch Batch populated with timestamp and sensor values in degrees Celsius (°C).
- * @return SampleFlags::None on success or an error flag (e.g., CommError).
- */
-SampleFlags ModbusTcpClient::read_temperature_batch(TemperatureBatch &batch)
-    {
-        std::array<std::uint16_t, kRegisterBlockCount> registers;
-
-        if (!read_bms_block(registers))
-        {
-            batch.flags = SampleFlags::CommError;
-            batch.ts.valid = false;
-            return SampleFlags::CommError;
-        }
-
-        // Type-safe call - array passed by reference
-        populate_temperature_batch(batch, registers);
-        batch.flags = SampleFlags::None;
-
-        return SampleFlags::None;
-    }
-
     /** @brief Updates response timeout configuration and active context settings.
  * @param[in] timeout Maximum wait for MODBUS responses in milliseconds.
  */

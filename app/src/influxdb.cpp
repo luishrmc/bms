@@ -1,77 +1,49 @@
 /**
  * @file        influxdb.cpp
- * @author      Luis Maciel (luishrm@ufmg.br)
- * @brief       Source file for the BMS data-logger module.
- * @version     0.0.1
- * @date        2026-03-25
+ * @brief       Source file for the minimal InfluxDB HTTP write client.
  */
 
 #include "influxdb.hpp"
-#include "db_consumer.hpp"
 
 #include <curl/curl.h>
-#include <boost/thread/thread.hpp>
+
 #include <boost/chrono.hpp>
 #include <boost/thread/once.hpp>
+#include <boost/thread/thread.hpp>
+
 #include <iostream>
-#include <mutex>
+#include <stdexcept>
 
 namespace bms
 {
-
-    // libcurl callbacks
-    /**
- * @brief Discards HTTP response bytes received by libcurl.
- * @param[in] unused Pointer to received data (unused).
- * @param[in] size Element size in bytes.
- * @param[in] nmemb Number of elements received.
- * @param[in] user_data User pointer passed by libcurl (unused).
- * @return Total number of consumed bytes to signal success to libcurl.
- */
-static size_t discard_callback(void *, size_t size, size_t nmemb, void *)
+    namespace
     {
-        return size * nmemb;
-    }
+        static size_t discard_callback(void *, size_t size, size_t nmemb, void *)
+        {
+            return size * nmemb;
+        }
 
-    /**
- * @brief Captures HTTP error-body bytes returned by InfluxDB.
- * @param[in] contents Pointer to received payload chunk.
- * @param[in] size Element size in bytes.
- * @param[in] nmemb Number of elements received.
- * @param[in,out] userp Pointer to std::string accumulating error text.
- * @return Total number of consumed bytes to signal success to libcurl.
- */
-static size_t error_callback(void *contents, size_t size, size_t nmemb, void *userp)
-    {
-        std::string *error = static_cast<std::string *>(userp);
-        error->append(static_cast<char *>(contents), size * nmemb);
-        return size * nmemb;
-    }
+        static size_t error_callback(void *contents, size_t size, size_t nmemb, void *userp)
+        {
+            auto *error = static_cast<std::string *>(userp);
+            error->append(static_cast<char *>(contents), size * nmemb);
+            return size * nmemb;
+        }
 
-    // Global init (thread-safe singleton using boost::call_once)
-    static boost::once_flag curl_init_flag = BOOST_ONCE_INIT;
-    /**
- * @brief Initializes global libcurl state once per process.
- * @note Thread-safe when called through boost::call_once.
- */
-static void init_curl_global()
-    {
-        curl_global_init(CURL_GLOBAL_DEFAULT);
-    }
+        static boost::once_flag curl_init_flag = BOOST_ONCE_INIT;
 
-    /**
- * @brief Ensures process-wide libcurl initialization has run.
- */
-static void ensure_curl_global_init()
-    {
-        boost::call_once(curl_init_flag, init_curl_global);
-    }
+        static void init_curl_global()
+        {
+            curl_global_init(CURL_GLOBAL_DEFAULT);
+        }
 
-    /**
- * @brief Constructs an HTTP client bound to one InfluxDB configuration.
- * @param[in] cfg InfluxDB endpoint, retry and batching configuration values.
- */
-InfluxHTTPClient::InfluxHTTPClient(const InfluxDBConfig &cfg)
+        static void ensure_curl_global_init()
+        {
+            boost::call_once(curl_init_flag, init_curl_global);
+        }
+    } // namespace
+
+    InfluxHTTPClient::InfluxHTTPClient(const InfluxDBConfig &cfg)
         : cfg_(cfg)
     {
         ensure_curl_global_init();
@@ -84,9 +56,8 @@ InfluxHTTPClient::InfluxHTTPClient(const InfluxDBConfig &cfg)
 
         curl_ = curl;
 
-        // Common options
-        long timeout_ms = static_cast<long>(cfg_.request_timeout.count());
-        long connect_timeout_ms = static_cast<long>(cfg_.connect_timeout.count());
+        const long timeout_ms = static_cast<long>(cfg_.request_timeout.count());
+        const long connect_timeout_ms = static_cast<long>(cfg_.connect_timeout.count());
 
         curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout_ms);
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, connect_timeout_ms);
@@ -94,11 +65,9 @@ InfluxHTTPClient::InfluxHTTPClient(const InfluxDBConfig &cfg)
         curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, discard_callback);
 
-        // HTTP headers
         curl_slist *headers = nullptr;
         headers = curl_slist_append(headers, "Content-Type: text/plain; charset=utf-8");
 
-        // Authentication
         if (!cfg_.token.empty())
         {
             std::string auth_header = "Authorization: Bearer " + cfg_.token;
@@ -109,8 +78,7 @@ InfluxHTTPClient::InfluxHTTPClient(const InfluxDBConfig &cfg)
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     }
 
-    /** @brief Releases libcurl handles owned by this client instance. */
-InfluxHTTPClient::~InfluxHTTPClient()
+    InfluxHTTPClient::~InfluxHTTPClient()
     {
         if (headers_)
         {
@@ -123,31 +91,21 @@ InfluxHTTPClient::~InfluxHTTPClient()
         }
     }
 
-    /** @brief Builds the InfluxDB write endpoint URL.
- * @return Fully qualified write_lp URL with database and precision query parameters.
- */
-std::string InfluxHTTPClient::make_write_url_() const
+    std::string InfluxHTTPClient::make_write_url_() const
     {
         return cfg_.base_url + "/api/v3/write_lp?db=" + cfg_.database + "&precision=ns";
     }
 
-    /** @brief Builds the InfluxDB readiness probe URL.
- * @return Fully qualified write_lp URL for lightweight startup probing.
- */
-std::string InfluxHTTPClient::make_ping_url_() const
+    std::string InfluxHTTPClient::make_ping_url_() const
     {
         return make_write_url_();
     }
 
-    /**
- * @brief Probes server reachability through the configured write endpoint.
- * @return True when the endpoint is reachable (HTTP 204 or HTTP 400).
- */
-bool InfluxHTTPClient::ping() noexcept
+    bool InfluxHTTPClient::ping() noexcept
     {
         CURL *curl = static_cast<CURL *>(curl_);
 
-        std::string url = make_ping_url_();
+        const std::string url = make_ping_url_();
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 0L);
@@ -180,27 +138,19 @@ bool InfluxHTTPClient::ping() noexcept
         return false;
     }
 
-    /**
- * @brief Sends newline-delimited Line Protocol payload to InfluxDB 3.
- * @param[in] payload Line Protocol text to post.
- * @param[out] error_out Detailed transport/HTTP error message on failure.
- * @return True when InfluxDB replies HTTP 204, otherwise false.
- */
-bool InfluxHTTPClient::write_lp(const std::string &payload, std::string &error_out) noexcept
+    bool InfluxHTTPClient::write_lp(const std::string &payload, std::string &error_out) noexcept
     {
         CURL *curl = static_cast<CURL *>(curl_);
 
-        std::string url = make_write_url_();
+        const std::string url = make_write_url_();
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.data());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(payload.size()));
 
-        // Error response buffer
         std::string error_response;
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &error_response);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, error_callback);
 
-        // Retry loop
         CURLcode res = CURLE_OK;
         for (int attempt = 0; attempt <= cfg_.max_retries; ++attempt)
         {
@@ -218,7 +168,6 @@ bool InfluxHTTPClient::write_lp(const std::string &payload, std::string &error_o
             }
         }
 
-        // Reset write callback
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, discard_callback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, nullptr);
 
@@ -229,7 +178,6 @@ bool InfluxHTTPClient::write_lp(const std::string &payload, std::string &error_o
             return false;
         }
 
-        // Check HTTP status
         long http_code = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
         last_http_code_.store(static_cast<int>(http_code));
@@ -245,263 +193,4 @@ bool InfluxHTTPClient::write_lp(const std::string &payload, std::string &error_o
         return true;
     }
 
-} // namespace bms
-
-namespace bms
-{
-ProcessedTelemetryWriterTask::ProcessedTelemetryWriterTask(
-    InfluxDBConfig cfg,
-    InfluxHTTPClient &client,
-    RowQueue &queue)
-    : cfg_(std::move(cfg)), client_(client), queue_(queue)
-{
-    buffer_.reserve(16 * 1024);
-    last_flush_time_ = boost::chrono::steady_clock::now();
-}
-
-void ProcessedTelemetryWriterTask::operator()()
-{
-    last_error_.clear();
-
-    TelemetryRow *row = nullptr;
-    while (queue_.try_pop(row))
-    {
-        if (row == nullptr)
-        {
-            continue;
-        }
-
-        append_row_line_(*row);
-        queue_.dispose(row);
-
-        if (should_flush_threshold_())
-        {
-            diag_.threshold_flushes.fetch_add(1);
-            (void)flush_buffer_();
-        }
-    }
-
-    const auto now = boost::chrono::steady_clock::now();
-    if (should_flush_timer_(now))
-    {
-        diag_.timer_flushes.fetch_add(1);
-        (void)flush_buffer_();
-    }
-}
-
-void ProcessedTelemetryWriterTask::append_row_line_(const TelemetryRow &row)
-{
-    const std::int64_t ts_ns = to_influxdb_ns_(row.timestamp);
-
-    buffer_ += table_name_;
-    buffer_ += " ";
-
-    buffer_ += "cursor=";
-    append_uint64_(buffer_, row.cursor);
-    buffer_ += "u";
-
-    buffer_ += ",current_a=";
-    append_float_fixed_(buffer_, row.current_a, cfg_.voltage_precision);
-
-    buffer_ += ",valid=";
-    buffer_ += (row.valid ? "true" : "false");
-
-    buffer_ += ",voltages=";
-    append_escaped_string_(buffer_, [&]() {
-        std::string payload;
-        payload.reserve(128);
-        append_numeric_array_json_(payload, row.voltages, kMaxVoltages, cfg_.voltage_precision);
-        return payload;
-    }());
-
-    buffer_ += ",temperatures=";
-    append_escaped_string_(buffer_, [&]() {
-        std::string payload;
-        payload.reserve(128);
-        append_numeric_array_json_(payload, row.temperatures, kMaxTemperatures, cfg_.temperature_precision);
-        return payload;
-    }());
-
-    buffer_ += ",status=";
-    append_escaped_string_(buffer_, row.status);
-
-    buffer_ += " ";
-    append_int64_(buffer_, ts_ns);
-    buffer_ += "\n";
-
-    ++buffered_lines_;
-    buffered_bytes_ = buffer_.size();
-}
-
-bool ProcessedTelemetryWriterTask::flush_buffer_()
-{
-    if (buffer_.empty())
-    {
-        return true;
-    }
-
-    std::string err;
-    if (!client_.write_lp(buffer_, err))
-    {
-        post_failures_.fetch_add(1);
-        diag_.write_failures.fetch_add(buffered_lines_);
-        last_error_ = std::move(err);
-        buffer_.clear();
-        buffered_lines_ = 0;
-        buffered_bytes_ = 0;
-        return false;
-    }
-
-    total_posts_.fetch_add(1);
-    diag_.rows_written.fetch_add(buffered_lines_);
-    buffer_.clear();
-    buffered_lines_ = 0;
-    buffered_bytes_ = 0;
-    last_flush_time_ = boost::chrono::steady_clock::now();
-    return true;
-}
-
-VoltageCurrentWriterTask::VoltageCurrentWriterTask(
-    InfluxDBConfig cfg,
-    InfluxHTTPClient &client,
-    VoltageQueue &queue)
-    : cfg_(std::move(cfg)), client_(client), queue_(queue)
-{
-    buffer_.reserve(16 * 1024);
-    last_flush_time_ = boost::chrono::steady_clock::now();
-}
-
-void VoltageCurrentWriterTask::operator()()
-{
-    last_error_.clear();
-
-    VoltageBatch *batch = nullptr;
-    while (queue_.try_pop(batch))
-    {
-        if (batch == nullptr)
-        {
-            continue;
-        }
-
-        handle_batch_(*batch);
-        queue_.dispose(batch);
-
-        if (should_flush_threshold_())
-        {
-            diag_.threshold_flushes.fetch_add(1);
-            (void)flush_buffer_();
-        }
-    }
-
-    const auto now = boost::chrono::steady_clock::now();
-    if (should_flush_timer_(now))
-    {
-        diag_.timer_flushes.fetch_add(1);
-        (void)flush_buffer_();
-    }
-}
-
-void VoltageCurrentWriterTask::handle_batch_(const VoltageBatch &batch)
-{
-    if (batch.device_id != 1 && batch.device_id != 2)
-    {
-        diag_.dropped_invalid_batches.fetch_add(1);
-        return;
-    }
-
-    if (any(batch.flags))
-    {
-        diag_.dropped_invalid_batches.fetch_add(1);
-        return;
-    }
-
-    if (batch.device_id == 1)
-    {
-        device1_latch_ = batch;
-        has_device1_ = true;
-    }
-    else
-    {
-        device2_latch_ = batch;
-        has_device2_ = true;
-    }
-
-    if (!has_device1_ || !has_device2_)
-    {
-        return;
-    }
-
-    append_row_line_();
-    has_device1_ = false;
-    has_device2_ = false;
-}
-
-void VoltageCurrentWriterTask::append_row_line_()
-{
-    const auto ts = (device1_latch_.ts.timestamp >= device2_latch_.ts.timestamp)
-                        ? device1_latch_.ts.timestamp
-                        : device2_latch_.ts.timestamp;
-    const std::int64_t ts_ns = to_influxdb_ns_(ts);
-
-    buffer_ += table_name_;
-    buffer_ += " ";
-
-    for (std::size_t i = 0; i < kChannelsPerDevice; ++i)
-    {
-        if (i > 0)
-        {
-            buffer_ += ",";
-        }
-        buffer_ += "cell";
-        buffer_ += std::to_string(i + 1);
-        buffer_ += "_v=";
-        append_float_fixed_(buffer_, device1_latch_.voltages[i], cfg_.voltage_precision);
-    }
-
-    for (std::size_t i = 0; i < kChannelsPerDevice - 1; ++i)
-    {
-        buffer_ += ",cell";
-        buffer_ += std::to_string(i + 9);
-        buffer_ += "_v=";
-        append_float_fixed_(buffer_, device2_latch_.voltages[i], cfg_.voltage_precision);
-    }
-
-    buffer_ += ",current_a=";
-    append_float_fixed_(buffer_, device2_latch_.voltages[kChannelsPerDevice - 1], cfg_.voltage_precision);
-
-    buffer_ += " ";
-    append_int64_(buffer_, ts_ns);
-    buffer_ += "\n";
-
-    ++buffered_lines_;
-    buffered_bytes_ = buffer_.size();
-}
-
-bool VoltageCurrentWriterTask::flush_buffer_()
-{
-    if (buffer_.empty())
-    {
-        return true;
-    }
-
-    std::string err;
-    if (!client_.write_lp(buffer_, err))
-    {
-        post_failures_.fetch_add(1);
-        diag_.write_failures.fetch_add(buffered_lines_);
-        last_error_ = std::move(err);
-        buffer_.clear();
-        buffered_lines_ = 0;
-        buffered_bytes_ = 0;
-        return false;
-    }
-
-    total_posts_.fetch_add(1);
-    diag_.rows_written.fetch_add(buffered_lines_);
-    buffer_.clear();
-    buffered_lines_ = 0;
-    buffered_bytes_ = 0;
-    last_flush_time_ = boost::chrono::steady_clock::now();
-    return true;
-}
 } // namespace bms
