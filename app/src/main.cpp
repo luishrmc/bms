@@ -5,7 +5,6 @@
 
 #include "db_publisher.hpp"
 #include "influxdb.hpp"
-#include "measurement_bus.hpp"
 #include "periodic_task.hpp"
 #include "soc.hpp"
 #include "soh.hpp"
@@ -17,11 +16,12 @@
 #include <boost/thread/thread.hpp>
 
 #include <csignal>
+#include <chrono>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 
 #include <nlohmann/json.hpp>
-#include <fstream>
 
 boost::atomic<bool> g_running{true};
 
@@ -48,7 +48,7 @@ std::string get_token()
             return j["token"].get<std::string>();
         }
     }
-    catch (const nlohmann::json::exception &e)
+    catch (const nlohmann::json::exception &)
     {
         std::cout << "[Main] Error: Failed to parse token JSON file." << std::endl;
     }
@@ -64,7 +64,52 @@ int main()
     std::cout << " BMS Simplified Operational Runtime " << std::endl;
     std::cout << "========================================" << std::endl;
 
-    bms::MeasurementBus measurement_bus;
+    bms::DBPublisherTask::VoltageQueue db_voltage_queue(2048);
+    bms::DBPublisherTask::TemperatureQueue db_temperature_queue(512);
+    bms::SoCTask::VoltageQueue soc_voltage_queue(2048);
+    bms::SoCTask::TemperatureQueue soc_temperature_queue(512);
+    bms::SoHTask::VoltageQueue soh_voltage_queue(2048);
+    bms::SoHTask::TemperatureQueue soh_temperature_queue(512);
+
+    auto publish_voltage_sample = [&](const bms::VoltageCurrentSample &sample) {
+        auto *db_copy = new bms::VoltageCurrentSample(sample);
+        if (!db_voltage_queue.push_blocking(db_copy))
+        {
+            db_voltage_queue.dispose(db_copy);
+        }
+
+        auto *soc_copy = new bms::VoltageCurrentSample(sample);
+        if (!soc_voltage_queue.push_blocking(soc_copy))
+        {
+            soc_voltage_queue.dispose(soc_copy);
+        }
+
+        auto *soh_copy = new bms::VoltageCurrentSample(sample);
+        if (!soh_voltage_queue.push_blocking(soh_copy))
+        {
+            soh_voltage_queue.dispose(soh_copy);
+        }
+    };
+
+    auto publish_temperature_sample = [&](const bms::TemperatureSample &sample) {
+        auto *db_copy = new bms::TemperatureSample(sample);
+        if (!db_temperature_queue.push_blocking(db_copy))
+        {
+            db_temperature_queue.dispose(db_copy);
+        }
+
+        auto *soc_copy = new bms::TemperatureSample(sample);
+        if (!soc_temperature_queue.push_blocking(soc_copy))
+        {
+            soc_temperature_queue.dispose(soc_copy);
+        }
+
+        auto *soh_copy = new bms::TemperatureSample(sample);
+        if (!soh_temperature_queue.push_blocking(soh_copy))
+        {
+            soh_temperature_queue.dispose(soh_copy);
+        }
+    };
 
     bms::VoltageCurrentAcquisitionConfig vc_cfg;
     vc_cfg.device1.host = "192.168.7.2";
@@ -82,9 +127,7 @@ int main()
     vc_cfg.current_offset_a = 0.0F;
 
     bms::VoltageCurrentAcquisition voltage_current_acquisition(vc_cfg);
-    voltage_current_acquisition.set_sample_callback([&measurement_bus](const bms::VoltageCurrentSample &sample) {
-        measurement_bus.publish(sample);
-    });
+    voltage_current_acquisition.set_sample_callback(publish_voltage_sample);
 
     bms::TemperatureAcquisitionConfig temp_cfg;
     temp_cfg.device.host = "192.168.7.20";
@@ -94,9 +137,7 @@ int main()
     temp_cfg.device.read_retries = 2;
 
     bms::TemperatureAcquisition temperature_acquisition(temp_cfg);
-    temperature_acquisition.set_sample_callback([&measurement_bus](const bms::TemperatureSample &sample) {
-        measurement_bus.publish(sample);
-    });
+    temperature_acquisition.set_sample_callback(publish_temperature_sample);
 
     bms::InfluxDBConfig influx_cfg;
     if (const char *token = std::getenv("INFLUXDB3_TOKEN"))
@@ -109,10 +150,16 @@ int main()
     }
 
     bms::InfluxHTTPClient influx_client(influx_cfg);
-    bms::DBPublisherTask db_publisher(influx_client, measurement_bus);
+    bms::DBPublisherTask db_publisher(
+        influx_client,
+        db_voltage_queue,
+        db_temperature_queue,
+        bms::DBPublisherConfig{.max_lines_per_post = 256,
+                               .max_payload_bytes = 128 * 1024,
+                               .flush_interval = std::chrono::milliseconds(200)});
 
-    bms::SoCTask soc_task(bms::SoCTaskConfig{}, measurement_bus);
-    bms::SoHTask soh_task(bms::SoHTaskConfig{}, measurement_bus);
+    bms::SoCTask soc_task(bms::SoCTaskConfig{}, soc_voltage_queue, soc_temperature_queue);
+    bms::SoHTask soh_task(bms::SoHTaskConfig{}, soh_voltage_queue, soh_temperature_queue);
 
     try
     {
@@ -133,18 +180,16 @@ int main()
             std::cerr << "    Device T: " << temperature_acquisition.device_status().last_error << std::endl;
         }
 
-        std::cout << "\n[Main] Creating periodic tasks..." << std::endl;
+        std::cout << "\n[Main] Creating tasks and worker threads..." << std::endl;
         bms::PeriodicTask voltage_current_task(boost::chrono::milliseconds(100), std::ref(voltage_current_acquisition));
         bms::PeriodicTask temperature_task(boost::chrono::milliseconds(1000), std::ref(temperature_acquisition));
-        bms::PeriodicTask db_publisher_task(boost::chrono::milliseconds(200), std::ref(db_publisher));
-        bms::PeriodicTask soc_interface_task(boost::chrono::milliseconds(250), std::ref(soc_task));
-        bms::PeriodicTask soh_interface_task(boost::chrono::milliseconds(250), std::ref(soh_task));
+
+        boost::thread db_publisher_thread(std::ref(db_publisher));
+        boost::thread soc_thread(std::ref(soc_task));
+        boost::thread soh_thread(std::ref(soh_task));
 
         voltage_current_task.start();
         temperature_task.start();
-        db_publisher_task.start();
-        soc_interface_task.start();
-        soh_interface_task.start();
 
         int counter = 0;
         while (g_running)
@@ -159,13 +204,32 @@ int main()
                 std::cout << "\n=== Runtime Diagnostics (t=" << counter << "s) ===" << std::endl;
                 std::cout << "  [DBPublisher] voltage_rows=" << db_diag.voltage_rows_written
                           << " temperature_rows=" << db_diag.temperature_rows_written
+                          << " http_posts=" << db_diag.http_posts
                           << " write_failures=" << db_diag.write_failures << std::endl;
+                std::cout << "    db_q(vc): size=" << db_voltage_queue.approximate_size()
+                          << " peak=" << db_voltage_queue.peak_size()
+                          << " dropped=" << db_voltage_queue.dropped_count() << std::endl;
+                std::cout << "    db_q(temp): size=" << db_temperature_queue.approximate_size()
+                          << " peak=" << db_temperature_queue.peak_size()
+                          << " dropped=" << db_temperature_queue.dropped_count() << std::endl;
                 std::cout << "  [SoC] frames_with_both=" << soc_diag.frames_with_both_measurements
                           << " last_vc_seq=" << soc_diag.last_voltage_sequence
                           << " last_temp_seq=" << soc_diag.last_temperature_sequence << std::endl;
+                std::cout << "    soc_q(vc): size=" << soc_voltage_queue.approximate_size()
+                          << " peak=" << soc_voltage_queue.peak_size()
+                          << " dropped=" << soc_voltage_queue.dropped_count() << std::endl;
+                std::cout << "    soc_q(temp): size=" << soc_temperature_queue.approximate_size()
+                          << " peak=" << soc_temperature_queue.peak_size()
+                          << " dropped=" << soc_temperature_queue.dropped_count() << std::endl;
                 std::cout << "  [SoH] frames_with_both=" << soh_diag.frames_with_both_measurements
                           << " last_vc_seq=" << soh_diag.last_voltage_sequence
                           << " last_temp_seq=" << soh_diag.last_temperature_sequence << std::endl;
+                std::cout << "    soh_q(vc): size=" << soh_voltage_queue.approximate_size()
+                          << " peak=" << soh_voltage_queue.peak_size()
+                          << " dropped=" << soh_voltage_queue.dropped_count() << std::endl;
+                std::cout << "    soh_q(temp): size=" << soh_temperature_queue.approximate_size()
+                          << " peak=" << soh_temperature_queue.peak_size()
+                          << " dropped=" << soh_temperature_queue.dropped_count() << std::endl;
             }
         }
 
@@ -173,15 +237,20 @@ int main()
 
         voltage_current_task.stop();
         temperature_task.stop();
-        db_publisher_task.stop();
-        soc_interface_task.stop();
-        soh_interface_task.stop();
+
+        db_voltage_queue.close();
+        db_temperature_queue.close();
+        soc_voltage_queue.close();
+        soc_temperature_queue.close();
+        soh_voltage_queue.close();
+        soh_temperature_queue.close();
 
         voltage_current_task.join();
         temperature_task.join();
-        db_publisher_task.join();
-        soc_interface_task.join();
-        soh_interface_task.join();
+
+        db_publisher_thread.join();
+        soc_thread.join();
+        soh_thread.join();
 
         voltage_current_acquisition.disconnect();
         temperature_acquisition.disconnect();
@@ -192,6 +261,12 @@ int main()
     catch (const std::exception &e)
     {
         std::cerr << "\n[Main] FATAL ERROR: " << e.what() << std::endl;
+        db_voltage_queue.close();
+        db_temperature_queue.close();
+        soc_voltage_queue.close();
+        soc_temperature_queue.close();
+        soh_voltage_queue.close();
+        soh_temperature_queue.close();
         return 1;
     }
 }
