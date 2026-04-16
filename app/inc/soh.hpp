@@ -16,11 +16,17 @@
 
 namespace bms
 {
+    /**
+     * @brief Runtime options for the SoH interface task.
+     */
     struct SoHTaskConfig final
     {
         bool enable_diagnostics_logging{true};
     };
 
+    /**
+     * @brief Counters tracking SoH input stream alignment and progression.
+     */
     struct SoHTaskDiagnostics final
     {
         std::uint64_t frames_observed{0};
@@ -29,17 +35,26 @@ namespace bms
         std::uint64_t last_temperature_sequence{0};
     };
 
+    /**
+     * @brief Queue consumer that aligns voltage/current frames with latest temperatures.
+     */
     class SoHTask final
     {
     public:
         using VoltageQueue = SafeQueue<VoltageCurrentSample>;
         using TemperatureQueue = SafeQueue<TemperatureSample>;
 
+        /**
+         * @brief Creates the SoH task bound to queue inputs.
+         */
         SoHTask(SoHTaskConfig cfg, VoltageQueue &voltage_queue, TemperatureQueue &temperature_queue);
 
         SoHTask(const SoHTask &) = delete;
         SoHTask &operator=(const SoHTask &) = delete;
 
+        /**
+         * @brief Runs consumption loop until both queues are closed.
+         */
         void operator()();
 
         const SoHTaskDiagnostics &diagnostics() const noexcept { return diag_; }

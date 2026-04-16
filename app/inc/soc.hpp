@@ -16,11 +16,17 @@
 
 namespace bms
 {
+    /**
+     * @brief Runtime options for the SoC interface task.
+     */
     struct SoCTaskConfig final
     {
         bool enable_diagnostics_logging{true};
     };
 
+    /**
+     * @brief Counters tracking SoC input stream alignment and progression.
+     */
     struct SoCTaskDiagnostics final
     {
         std::uint64_t frames_observed{0};
@@ -29,17 +35,26 @@ namespace bms
         std::uint64_t last_temperature_sequence{0};
     };
 
+    /**
+     * @brief Queue consumer that aligns voltage/current frames with latest temperatures.
+     */
     class SoCTask final
     {
     public:
         using VoltageQueue = SafeQueue<VoltageCurrentSample>;
         using TemperatureQueue = SafeQueue<TemperatureSample>;
 
+        /**
+         * @brief Creates the SoC task bound to queue inputs.
+         */
         SoCTask(SoCTaskConfig cfg, VoltageQueue &voltage_queue, TemperatureQueue &temperature_queue);
 
         SoCTask(const SoCTask &) = delete;
         SoCTask &operator=(const SoCTask &) = delete;
 
+        /**
+         * @brief Runs consumption loop until both queues are closed.
+         */
         void operator()();
         const SoCTaskDiagnostics &diagnostics() const noexcept { return diag_; }
 

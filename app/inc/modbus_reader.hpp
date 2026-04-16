@@ -1,9 +1,6 @@
 /**
- * @file        modbus_reader.hpp
- * @author      Luis Maciel (luishrm@ufmg.br)
- * @brief       Header file for the BMS data-logger module.
- * @version     0.0.1
- * @date        2026-03-25
+ * @file modbus_reader.hpp
+ * @brief MODBUS/TCP client wrapper used by acquisition tasks.
  */
 
 #pragma once
@@ -18,7 +15,7 @@
 namespace bms
 {
     /**
-     * ModbusTcpConfig - MODBUS/TCP connection configuration
+     * @brief Connection, timeout, and retry settings for one MODBUS/TCP endpoint.
      */
     struct ModbusTcpConfig final
     {
@@ -38,7 +35,7 @@ namespace bms
     };
 
     /**
-     *  ModbusStatus - Connection and read statistics
+     * @brief Mutable counters and last-error fields for MODBUS operations.
      */
     struct ModbusStatus final
     {
@@ -51,11 +48,15 @@ namespace bms
     };
 
     /**
-     * ModbusTcpClient - libmodbus wrapper for BMS acquisition
+     * @brief Thin libmodbus wrapper with reconnect and retry behavior.
      */
     class ModbusTcpClient final
     {
     public:
+        /**
+         * @brief Creates a client with copied connection settings.
+         * @param cfg Endpoint, timeout, and retry configuration.
+         */
         explicit ModbusTcpClient(ModbusTcpConfig cfg);
         ~ModbusTcpClient();
 
@@ -63,19 +64,39 @@ namespace bms
         ModbusTcpClient(const ModbusTcpClient &) = delete;
         ModbusTcpClient &operator=(const ModbusTcpClient &) = delete;
 
+        /**
+         * @brief Opens a MODBUS/TCP connection.
+         * @return True when session setup succeeds.
+         */
         bool connect();
+        /**
+         * @brief Closes and frees the active MODBUS context.
+         */
         void disconnect();
+        /**
+         * @brief Checks whether a live context is currently available.
+         */
         bool is_connected() const noexcept;
 
+        /**
+         * @brief Reads a contiguous register block from the remote device.
+         * @param addr Starting register address.
+         * @param count Number of registers to read.
+         * @param dest Destination buffer of at least @p count entries.
+         * @return True on successful full-length read.
+         */
         bool read_input_registers(int addr, int count, std::uint16_t *dest);
 
         /**
-         * Read BMS register block (3-37) in single transaction.
-         * Returns type-safe array for population functions.
+         * @brief Reads the canonical BMS block (registers 3..37) in one transaction.
+         * @param out_regs Fixed-size destination buffer.
+         * @return True on successful full block read.
          */
         bool read_bms_block(std::array<std::uint16_t, kRegisterBlockCount> &out_regs);
 
+        /** @brief Updates response timeout (applied immediately when connected). */
         void set_response_timeout(std::chrono::milliseconds timeout);
+        /** @brief Updates inter-byte timeout (applied immediately when connected). */
         void set_byte_timeout(std::chrono::milliseconds timeout);
 
         const ModbusTcpConfig &config() const noexcept { return cfg_; }

@@ -1,9 +1,6 @@
 /**
- * @file        periodic_task.hpp
- * @author      Luis Maciel (luishrm@ufmg.br)
- * @brief       Header file for the BMS data-logger module.
- * @version     0.0.1
- * @date        2026-03-25
+ * @file periodic_task.hpp
+ * @brief Drift-aware periodic task runner backed by a dedicated worker thread.
  */
 
 #pragma once
@@ -18,21 +15,9 @@
 namespace bms
 {
     /**
-     * PeriodicTask - Executes a callable at fixed intervals in a dedicated thread.
-     *
-     * Features:
-     * - Drift-free scheduling using boost::chrono::steady_clock
-     * - Thread-safe start/stop with atomic flag
-     * - Exception handling within task execution
-     * - Compatible with SafeQueue::close() for coordinated shutdown
-     *
-     * Usage:
-     *   PeriodicTask task(boost::chrono::milliseconds(100),
-     *                     []{ read_sensors(); });
-     *   task.start();
-     *   // ... work ...
-     *   task.stop();  // Signals stop
-     *   task.join();  // Waits for clean exit
+     * @brief Executes a callable at fixed intervals in one dedicated thread.
+     * @details Scheduling uses a monotonic clock and advances by interval increments
+     * to reduce accumulated drift across long runtimes.
      */
     class PeriodicTask final
     {

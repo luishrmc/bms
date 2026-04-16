@@ -1,3 +1,8 @@
+/**
+ * @file temperature.hpp
+ * @brief Temperature acquisition task and related configuration/diagnostics types.
+ */
+
 #pragma once
 
 #include "batch_structures.hpp"
@@ -13,6 +18,9 @@
 
 namespace bms
 {
+    /**
+     * @brief Runtime configuration for single-device temperature acquisition.
+     */
     struct TemperatureAcquisitionConfig final
     {
         ModbusTcpConfig device{};
@@ -20,6 +28,9 @@ namespace bms
         std::uint64_t diagnostics_every_cycles{0};
     };
 
+    /**
+     * @brief Lock-free counters exported for temperature task diagnostics.
+     */
     struct TemperatureAcquisitionDiagnostics final
     {
         std::atomic<std::uint64_t> attempts{0};
@@ -28,24 +39,49 @@ namespace bms
         std::atomic<std::int64_t> last_cycle_duration_ms{0};
     };
 
+    /**
+     * @brief Periodic acquisition functor for 16 temperature channels.
+     */
     class TemperatureAcquisition final
     {
     public:
+        /**
+         * @brief Callback invoked when a complete temperature sample is available.
+         */
         using SampleCallback = std::function<void(const TemperatureSample &)>;
 
+        /**
+         * @brief Builds the task from runtime configuration.
+         * @param cfg Device endpoint and logging controls.
+         */
         explicit TemperatureAcquisition(TemperatureAcquisitionConfig cfg);
 
         TemperatureAcquisition(const TemperatureAcquisition &) = delete;
         TemperatureAcquisition &operator=(const TemperatureAcquisition &) = delete;
 
+        /**
+         * @brief Connects to the MODBUS/TCP temperature device.
+         * @return True when connection succeeds.
+         */
         bool connect();
+        /**
+         * @brief Disconnects from the MODBUS/TCP temperature device.
+         */
         void disconnect();
 
+        /**
+         * @brief Executes one acquisition cycle.
+         * @note Intended for periodic invocation by @ref PeriodicTask.
+         */
         void operator()();
 
         const TemperatureAcquisitionConfig &config() const noexcept { return cfg_; }
         const TemperatureAcquisitionDiagnostics &diagnostics() const noexcept { return diagnostics_; }
         const ModbusStatus &device_status() const noexcept { return device_.status(); }
+        /**
+         * @brief Registers the callback for successful sample delivery.
+         * @param callback Consumer callback; replaced on each call.
+         */
         void set_sample_callback(SampleCallback callback) { on_sample_ = std::move(callback); }
 
     private:

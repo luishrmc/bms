@@ -47,6 +47,7 @@ bool ModbusTcpClient::connect()
     {
         disconnect();
 
+        // Build and configure a fresh libmodbus context for this endpoint.
         modbus_t *ctx = modbus_new_tcp(cfg_.host.c_str(), cfg_.port);
         if (!ctx)
         {
@@ -84,7 +85,7 @@ bool ModbusTcpClient::connect()
             return false;
         }
 
-        // Connection retry loop
+        // Retry transient connect failures using configured attempt budget.
         for (int attempt = 0; attempt < cfg_.connect_retries; ++attempt)
         {
             if (modbus_connect(ctx) == 0)
@@ -158,6 +159,7 @@ bool ModbusTcpClient::read_input_registers(
             return false;
         }
 
+        // Retry read failures and force reconnect between attempts.
         for (int attempt = 0; attempt <= cfg_.read_retries; ++attempt)
         {
             if (!ensure_connected_())
