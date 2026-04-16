@@ -20,12 +20,39 @@
 #include <cstdlib>
 #include <iostream>
 
+#include <nlohmann/json.hpp>
+#include <fstream>
+
 boost::atomic<bool> g_running{true};
 
 void signal_handler(int)
 {
     std::cout << "\n[Main] Shutdown signal received..." << std::endl;
     g_running = false;
+}
+
+/**
+ * @brief Loads InfluxDB authentication token from config/influxdb3/token.json.
+ * @return Token string, or an empty string if unavailable/invalid.
+ */
+std::string get_token()
+{
+    try
+    {
+        nlohmann::json j;
+        std::ifstream token_file("config/influxdb3/token.json");
+        token_file >> j;
+        token_file.close();
+        if (j.contains("token") && j["token"].is_string())
+        {
+            return j["token"].get<std::string>();
+        }
+    }
+    catch (const nlohmann::json::exception &e)
+    {
+        std::cout << "[Main] Error: Failed to parse token JSON file." << std::endl;
+    }
+    return "";
 }
 
 int main()
@@ -60,7 +87,7 @@ int main()
     });
 
     bms::TemperatureAcquisitionConfig temp_cfg;
-    temp_cfg.device.host = "192.168.7.201";
+    temp_cfg.device.host = "192.168.7.20";
     temp_cfg.device.port = 502;
     temp_cfg.device.unit_id = 3;
     temp_cfg.device.connect_retries = 3;
@@ -75,6 +102,10 @@ int main()
     if (const char *token = std::getenv("INFLUXDB3_TOKEN"))
     {
         influx_cfg.token = token;
+    }
+    else
+    {
+        influx_cfg.token = get_token();
     }
 
     bms::InfluxHTTPClient influx_client(influx_cfg);
