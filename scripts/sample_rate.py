@@ -13,8 +13,8 @@ from influxdb_client_3.exceptions import InfluxDB3ClientQueryError  # type: igno
 # =========================
 # InfluxDB configuration
 # =========================
-INFLUXDB_HOST = "http://influxdb3:8181"
-INFLUXDB_TOKEN = "apiv3_IZ_eovVLJSlz3lMnQkloLVSpiOUIDHhVmHyJJuoudlVW8k1bchDbI9jym8vzOb534KBrmjNXKnpGcOh4d7Jo7w"
+INFLUXDB_HOST = "http://192.168.7.3:8181"
+INFLUXDB_TOKEN = "apiv3_j41nS69StsCFpdlvfV-LjHy4WPUxZiP1KKaHhmhwPKWsnuq70PgyuOnxmJlMcHXVAD7Gv-QhSBhUaEwEqBPHSA"
 INFLUXDB_DATABASE = "battery_data"
 
 VOLTAGE_TABLE = "voltage_current"
