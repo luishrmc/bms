@@ -117,9 +117,11 @@ namespace bms
             TemperatureSample sample;
             sample.timestamp = std::chrono::system_clock::now();
             sample.sequence = sequence_;
+            float temp = 0;
             for (std::size_t i = 0; i < kChannelCount; ++i)
             {
-                sample.temperatures[i] = decode_channel_(regs, i);
+                temp = decode_channel_(regs, i); 
+                sample.temperatures[i] = temp > 0 ? temp : 0;
             }
 
             diagnostics_.successes.fetch_add(1);
