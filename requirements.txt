@@ -4,9 +4,8 @@ pandas
 # ---- InfluxDB 3 client ----
 influxdb3-python
 
-# ---- Testing ----
-pytest
-pytest-timeout
-
 # ---- Modbus ----
 pymodbus
+
+# ---- Serial ----
+pyserial

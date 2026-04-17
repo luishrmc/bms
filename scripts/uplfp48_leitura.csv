@@ -1,0 +1,27 @@
+endereco;conteudo;valor_hex;valor_unidade_esperada
+0;Tensão do Conjunto;0x12F9;48.57 V
+1;Corrente;0x0000;"0 contagens (SHORT; o manual mostra unidade '10 mV' para corrente, o que parece inconsistente)"
+2;Tensão da Célula 01;0x0CA7;3239 mV
+3;Tensão da Célula 02;0x0CB8;3256 mV
+4;Tensão da Célula 03;0x0CB5;3253 mV
+5;Tensão da Célula 04;0x0CB7;3255 mV
+6;Tensão da Célula 05;0x0CB4;3252 mV
+7;Tensão da Célula 06;0x0CB9;3257 mV
+8;Tensão da Célula 07;0x0CAE;3246 mV
+9;Tensão da Célula 08;0x0C8B;3211 mV
+10;Tensão da Célula 09;0x0CA1;3233 mV
+11;Tensão da Célula 10;0x0CB4;3252 mV
+12;Tensão da Célula 11;0x0CB7;3255 mV
+13;Tensão da Célula 12;0x0CB9;3257 mV
+14;Tensão da Célula 13;0x0CB3;3251 mV
+15;Tensão da Célula 14;0x0C23;3107 mV
+16;Tensão da Célula 15;0x0CB2;3250 mV
+17;Tensão da Célula 16;0x0000;0 mV
+18;Temperatura de resfriamento do BMS;0x0019;25 °C
+19;Temperatura interna da bateria;0x0018;24 °C
+20;Temperatura máxima da célula;0x0019;25 °C
+21;Capacidade remanescente da bateria;0x0040;64 Ah
+22;Corrente máxima de recarga;0x0028;40 A
+23;Estado de vida (SOH);0x0064;100 %
+24;Estado de carga (SOC);0x0040;64 %
+25;Status;0x0000;Stand by
