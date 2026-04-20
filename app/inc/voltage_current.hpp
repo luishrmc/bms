@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "batch_structures.hpp"
 #include "modbus_reader.hpp"
 
 #include <array>
@@ -32,6 +31,18 @@ namespace bms
         float current_offset_a{0.0F};
         bool enable_sample_logging{true};
         std::uint64_t diagnostics_every_cycles{0};
+    };
+
+    /**
+     * @brief Unified downstream sample containing 15 cell voltages and pack current.
+     */
+    struct VoltageCurrentSample final
+    {
+        std::chrono::system_clock::time_point timestamp{};
+        std::array<float, 15> cell_voltages{};
+        float raw_current_sensor_v{0.0F};
+        float current_a{0.0F};
+        std::uint64_t sequence{0};
     };
 
     /**

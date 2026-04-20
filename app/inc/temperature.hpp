@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "batch_structures.hpp"
 #include "modbus_reader.hpp"
 
 #include <array>
@@ -37,6 +36,16 @@ namespace bms
         std::atomic<std::uint64_t> successes{0};
         std::atomic<std::uint64_t> failures{0};
         std::atomic<std::int64_t> last_cycle_duration_ms{0};
+    };
+
+    /**
+     * @brief Unified downstream sample containing 16 temperature channels.
+     */
+    struct TemperatureSample final
+    {
+        std::chrono::system_clock::time_point timestamp{};
+        std::array<float, kChannelCount> temperatures{};
+        std::uint64_t sequence{0};
     };
 
     /**

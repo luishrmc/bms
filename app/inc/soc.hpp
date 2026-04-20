@@ -8,7 +8,8 @@
 
 #pragma once
 
-#include "batch_structures.hpp"
+#include "temperature.hpp"
+#include "voltage_current.hpp"
 #include "safe_queue.hpp"
 
 #include <cstdint>

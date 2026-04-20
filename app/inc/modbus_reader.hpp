@@ -5,12 +5,11 @@
 
 #pragma once
 
-#include "batch_structures.hpp"
-
 #include <string>
 #include <cstdint>
 #include <array>
 #include <chrono>
+#include <cstring>
 
 namespace bms
 {
@@ -46,6 +45,11 @@ namespace bms
         std::uint64_t reconnects{0};
         std::uint64_t successful_reads{0};
     };
+
+    // All MODBUS constants centralized here for single source of truth
+    inline constexpr int kModbusStartAddr = 3;             // First register address
+    inline constexpr std::size_t kRegisterBlockCount = 35; // Registers 3-37 (35 total)
+    inline constexpr std::size_t kChannelCount = 16;       // Voltage/temperature channels
 
     /**
      * @brief Thin libmodbus wrapper with reconnect and retry behavior.
@@ -111,5 +115,18 @@ namespace bms
         void *ctx_{nullptr}; // Opaque modbus_t*
         bool connected_{false};
     };
+
+    inline float modbus_registers_to_float(
+        std::uint16_t high_word,
+        std::uint16_t low_word) noexcept
+    {
+        const std::uint32_t raw =
+            (static_cast<std::uint32_t>(high_word) << 16) |
+            static_cast<std::uint32_t>(low_word);
+
+        float result;
+        std::memcpy(&result, &raw, sizeof(float));
+        return result;
+    }
 
 } // namespace bms

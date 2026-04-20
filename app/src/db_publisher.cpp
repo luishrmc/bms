@@ -52,6 +52,16 @@ namespace bms
             }
             out += std::to_string(value);
         }
+
+        /**
+         * @brief Converts a system-clock timestamp to Unix nanoseconds.
+         */
+        inline std::int64_t to_influxdb_ns(std::chrono::system_clock::time_point tp) noexcept
+        {
+            using namespace std::chrono;
+            return duration_cast<nanoseconds>(tp.time_since_epoch()).count();
+        }
+
     } // namespace
 
     DBPublisherTask::DBPublisherTask(InfluxHTTPClient &client,
