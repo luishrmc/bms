@@ -1,18 +1,18 @@
 endereco;conteudo;valor_hex;valor_unidade_esperada
 0;Tensão do Conjunto;0x12F9;48.57 V
 1;Corrente;0x0000;"0 contagens (SHORT; o manual mostra unidade '10 mV' para corrente, o que parece inconsistente)"
-2;Tensão da Célula 01;0x0CA7;3239 mV
+2;Tensão da Célula 01;0x0CA8;3240 mV
 3;Tensão da Célula 02;0x0CB8;3256 mV
-4;Tensão da Célula 03;0x0CB5;3253 mV
+4;Tensão da Célula 03;0x0CB6;3254 mV
 5;Tensão da Célula 04;0x0CB7;3255 mV
-6;Tensão da Célula 05;0x0CB4;3252 mV
+6;Tensão da Célula 05;0x0CB5;3253 mV
 7;Tensão da Célula 06;0x0CB9;3257 mV
-8;Tensão da Célula 07;0x0CAE;3246 mV
-9;Tensão da Célula 08;0x0C8B;3211 mV
-10;Tensão da Célula 09;0x0CA1;3233 mV
+8;Tensão da Célula 07;0x0CAD;3245 mV
+9;Tensão da Célula 08;0x0C89;3209 mV
+10;Tensão da Célula 09;0x0CA2;3234 mV
 11;Tensão da Célula 10;0x0CB4;3252 mV
-12;Tensão da Célula 11;0x0CB7;3255 mV
-13;Tensão da Célula 12;0x0CB9;3257 mV
+12;Tensão da Célula 11;0x0CB6;3254 mV
+13;Tensão da Célula 12;0x0CB8;3256 mV
 14;Tensão da Célula 13;0x0CB3;3251 mV
 15;Tensão da Célula 14;0x0C23;3107 mV
 16;Tensão da Célula 15;0x0CB2;3250 mV
@@ -25,3 +25,102 @@ endereco;conteudo;valor_hex;valor_unidade_esperada
 23;Estado de vida (SOH);0x0064;100 %
 24;Estado de carga (SOC);0x0040;64 %
 25;Status;0x0000;Stand by
+26;Alarme;0x0000;Sem alarme
+27;Proteção;0x0000;Sem proteção ativa
+28;Código de Erro;0x0000;Sem erro
+29;Ciclo de baterias - contador (alto 16 bits);0x0000;alto=0x0000, baixo=0x00D5, combinado=213
+30;Ciclo de baterias - contador (baixo 16 bits);0x00D5;alto=0x0000, baixo=0x00D5, combinado=213
+31;Capacidade a plena carga (mAs) - alto 16 bits;0x1575;alto=0x1575, baixo=0x2A00, combinado=360000000 mAs
+32;Capacidade a plena carga (mAs) - baixo 16 bits;0x2A00;alto=0x1575, baixo=0x2A00, combinado=360000000 mAs
+33;Temperatura de célula 1;0x1818;Temperatura de célula 1: 6168 °C
+34;Temperatura de célula 2;0x1918;Temperatura de célula 2: 6424 °C
+35;Temperatura de célula 3;0x0000;Temperatura de célula 3: 0 °C
+36;Número de Células;0x000F;15
+37;Capacidade a plena carga (Ah);0x03E8;100 Ah
+38;Reservada;0x0000;0x0000
+39;Reservada;0x0000;0x0000
+40;Reservada;0x0007;0x0007
+41;Reservada;0x0FFF;0x0FFF
+42;Reservada;0x07FF;0x07FF
+43;Reservada;0x000F;0x000F
+44;Reservada;0x0005;0x0005
+45;Reservada;0x0947;0x0947
+46;Reservada;0x360C;0x360C
+47;Reservada;0x0008;0x0008
+48;Reservada;0x1194;0x1194
+49;Reservada;0x0000;0x0000
+50;Reservada;0x0000;0x0000
+51;Reservada;0x0000;0x0000
+52;Reservada;0x0000;0x0000
+53;Reservada;0x020D;0x020D
+54;Reservada;0x0205;0x0205
+55;Reservada;0x0000;0x0000
+56;Reservada;0x0D48;0x0D48
+57;Reservada;0x0028;0x0028
+58;Reservada;0x000F;0x000F
+59;Reservada;0x0000;0x0000
+60;Reservada;0x0000;0x0000
+61;Dados de alarme de subtensão em célula;0x09C4;2500 mV
+62;Dados de proteção de subtensão em célula;0x08FC;2300 mV
+63;Dados de recuperação de proteção de subtensão em célula;0x0C1C;3100 mV
+64;Dados de alarme de subtensão;0x10E0;43.200 V
+65;Dados de proteção de subtensão;0x1068;42 V
+66;Dados de recuperação de proteção de subtensão;0x122A;46.500 V
+67;Dados de alarme de sobretensão em célula;0x0FA0;4000 mV
+68;Dados de proteção de sobretensão em célula;0x0F3C;3900 mV
+69;Dados de recuperação de proteção de sobretensão em célula;0x0E10;3600 mV
+70;Dados de alarme de sobretensão;0x15E0;56 V
+71;Dados de proteção de sobretensão;0x1644;57 V
+72;Dados de recuperação de proteção de sobretensão;0x1518;54 V
+73;Sem descrição explícita no trecho do manual;0x0000;0x0000
+74;Sem descrição explícita no trecho do manual;0x0000;0x0000
+75;Sem descrição explícita no trecho do manual;0x0000;0x0000
+76;Sem descrição explícita no trecho do manual;0x0005;0x0005
+77;Sem descrição explícita no trecho do manual;0x0005;0x0005
+78;Sem descrição explícita no trecho do manual;0x00B4;0x00B4
+79;Sem descrição explícita no trecho do manual;0x003C;0x003C
+80;Corrente máxima de recarga;0x2710;100 A
+81;Corrente máxima de descarga;0x27D8;102 A
+82;Corrente de proteção de curto circuito;0x4E20;200 A
+83;Proteção de corrente de recarga;0x2EE0;120 A
+84;Proteção de corrente de descarga;0x3A98;150 A
+85;Sem descrição explícita no trecho do manual;0x0014;0x0014
+86;Sem descrição explícita no trecho do manual;0x0002;0x0002
+87;Sem descrição explícita no trecho do manual;0x001E;0x001E
+88;Sem descrição explícita no trecho do manual;0x0002;0x0002
+89;Sem descrição explícita no trecho do manual;0x0000;0x0000
+90;Proteção Recarga (Baixa Temperatura);0x0034;52 °C
+91;Alarme Recarga (Baixa Temperatura);0x0032;50 °C
+92;Liberação de recarga (Baixa Temperatura);0x0037;55 °C
+93;Proteção Recarga (Alta Temperatura);0x0073;115 °C
+94;Alarme Recarga (Alta Temperatura);0x0078;120 °C
+95;Liberação Recarga (Alta Temperatura);0x006E;110 °C
+96;Proteção Descarga (Baixa Temperatura);0x0023;35 °C
+97;Alarme Descarga (Baixa Temperatura);0x001E;30 °C
+98;Liberação Descarga (Baixa Temperatura);0x0028;40 °C
+99;Proteção Descarga (Alta Temperatura);0x0078;120 °C
+100;Alarme Descarga (Alta Temperatura);0x007D;125 °C
+101;Liberação Descarga (Alta Temperatura);0x0073;115 °C
+102;Sem descrição explícita no trecho do manual;0x008C;0x008C
+103;Sem descrição explícita no trecho do manual;0x0091;0x0091
+104;Sem descrição explícita no trecho do manual;0x007D;0x007D
+105;Modelo de Bateria (Número de série);0x442D;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+106;Modelo de Bateria (Número de série);0x3135;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+107;Modelo de Bateria (Número de série);0x5331;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+108;Modelo de Bateria (Número de série);0x3030;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+109;Modelo de Bateria (Número de série);0x412D;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+110;Modelo de Bateria (Número de série);0x5031;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+111;Modelo de Bateria (Número de série);0x352D;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+112;Modelo de Bateria (Número de série);0x554E;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+113;Modelo de Bateria (Número de série);0x492D;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+114;Modelo de Bateria (Número de série);0x5631;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+115;Modelo de Bateria (Número de série);0x2E30;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+116;Modelo de Bateria (Número de série);0x2020;Modelo/Número de série: D-15S100A-P15-UNI-V1.0  V06R16
+117;Versão do BMS;0x5630;Versão do BMS: V06R16
+118;Versão do BMS;0x3652;Versão do BMS: V06R16
+119;Versão do BMS;0x3136;Versão do BMS: V06R16
+120;Fabricante;0x3135;Fabricante: 1548100180
+121;Fabricante;0x3438;Fabricante: 1548100180
+122;Fabricante;0x3130;Fabricante: 1548100180
+123;Fabricante;0x3031;Fabricante: 1548100180
+124;Fabricante;0x3830;Fabricante: 1548100180
