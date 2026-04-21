@@ -7,7 +7,8 @@
                 "${workspaceFolder}/build/_deps/paho-mqttpp3-src/include",
                 "${workspaceFolder}/build/_deps/paho-mqttpp3-src/src",
                 "${workspaceFolder}/build/_deps/paho-mqttpp3-src/externals/paho-mqtt-c/src",
-                "/usr/include/modbus"
+                "/usr/include/modbus",
+                "${workspaceFolder}/bms-companion/inc"
             ],
             "defines": [],
             "cStandard": "c17",

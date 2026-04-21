@@ -6,6 +6,8 @@ set(BMS_COMPANION_EXEC_NAME bms_companion)
 # Define the main executable and specify its source files
 add_executable(${BMS_COMPANION_EXEC_NAME}
     src/main.cpp
+    src/modbus_codec.cpp
+    src/rs485_task.cpp
 )
 
 # Add include directories needed for this target (e.g., generated config headers)
@@ -13,6 +15,7 @@ target_include_directories(${BMS_COMPANION_EXEC_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/config
     ${CMAKE_BINARY_DIR}/app_config
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
+    ${PROJECT_SOURCE_DIR}/app/inc
 )
 
 # Link required internal libraries to the executable
