@@ -5,16 +5,18 @@
 
 #include <boost/thread/thread.hpp>
 
+#include <cstdint>
 #include <iostream>
+#include <optional>
 
 namespace bms
 {
 
     MQTTTask::MQTTTask(const MQTTTaskConfig &cfg,
-                       SnapshotQueue &snapshot_queue,
+                       const LatestBatteryState &latest_state,
                        boost::atomic<bool> &running_flag)
         : cfg_(cfg),
-          snapshot_queue_(snapshot_queue),
+          latest_state_(latest_state),
           running_(running_flag)
     {
     }
@@ -32,7 +34,7 @@ namespace bms
             try
             {
                 diagnostics_.reconnect_attempts += 1;
-                std::cout << "[MQTT] Connecting to broker " << cfg_.server_uri << " ..." << std::endl;
+                std::cout << "[MQTT] Connecting to broker " << cfg_.server_uri << "..." << std::endl;
 
                 auto tok = client.connect(conn_opts);
                 tok->wait();
@@ -40,11 +42,6 @@ namespace bms
                 std::cout << "[MQTT] Connected." << std::endl;
                 diagnostics_.last_error.clear();
                 return true;
-            }
-            catch (const mqtt::exception &e)
-            {
-                diagnostics_.last_error = e.what();
-                std::cerr << "[MQTT] Connect failed: " << e.what() << std::endl;
             }
             catch (const std::exception &e)
             {
@@ -82,7 +79,6 @@ namespace bms
 
         j["soc_pct"] = snapshot.soc_pct;
         j["soh_pct"] = snapshot.soh_pct;
-
         j["remaining_capacity_ah"] = snapshot.remaining_capacity_ah;
         j["max_charge_current_a"] = snapshot.max_charge_current_a;
 
@@ -102,9 +98,9 @@ namespace bms
         j["full_charge_capacity_ah"] = snapshot.full_charge_capacity_ah;
 
         j["cell_voltage_mv"] = nlohmann::json::array();
-        for (std::size_t i = 0; i < snapshot.cell_voltage_mv.size(); ++i)
+        for (const auto v : snapshot.cell_voltage_mv)
         {
-            j["cell_voltage_mv"].push_back(snapshot.cell_voltage_mv[i]);
+            j["cell_voltage_mv"].push_back(v);
         }
 
         if (!snapshot.serial_or_model.empty())
@@ -139,15 +135,7 @@ namespace bms
 
             diagnostics_.published_snapshots += 1;
             diagnostics_.last_error.clear();
-
             return true;
-        }
-        catch (const mqtt::exception &e)
-        {
-            diagnostics_.publish_failures += 1;
-            diagnostics_.last_error = e.what();
-            std::cerr << "[MQTT] Publish failed: " << e.what() << std::endl;
-            return false;
         }
         catch (const std::exception &e)
         {
@@ -166,8 +154,6 @@ namespace bms
         conn_opts.set_clean_session(true);
         conn_opts.set_automatic_reconnect(false);
 
-        BatterySnapshot *snapshot_ptr = nullptr;
-
         while (running_)
         {
             if (!ensure_connected_(client, conn_opts))
@@ -175,51 +161,26 @@ namespace bms
                 break;
             }
 
-            if (!snapshot_queue_.wait_for_and_pop(snapshot_ptr, cfg_.wait_timeout))
+            const std::optional<BatterySnapshot> snapshot = latest_state_.get_copy();
+            if (snapshot.has_value())
             {
-                continue;
-            }
-
-            if (snapshot_ptr == nullptr)
-            {
-                continue;
-            }
-
-            if (!publish_snapshot_(client, *snapshot_ptr))
-            {
-                try
+                if (!publish_snapshot_(client, *snapshot))
                 {
-                    if (client.is_connected())
+                    try
                     {
-                        client.disconnect()->wait();
+                        if (client.is_connected())
+                        {
+                            client.disconnect()->wait();
+                        }
+                    }
+                    catch (...)
+                    {
                     }
                 }
-                catch (...)
-                {
-                }
-
-                snapshot_queue_.dispose(snapshot_ptr);
-                snapshot_ptr = nullptr;
-                boost::this_thread::sleep_for(
-                    boost::chrono::milliseconds(cfg_.reconnect_delay_ms));
-                continue;
             }
 
-            snapshot_queue_.dispose(snapshot_ptr);
-            snapshot_ptr = nullptr;
-        }
-
-        while (snapshot_queue_.try_pop(snapshot_ptr))
-        {
-            if (snapshot_ptr != nullptr)
-            {
-                if (ensure_connected_(client, conn_opts))
-                {
-                    (void)publish_snapshot_(client, *snapshot_ptr);
-                }
-                snapshot_queue_.dispose(snapshot_ptr);
-                snapshot_ptr = nullptr;
-            }
+            boost::this_thread::sleep_for(
+                boost::chrono::milliseconds(cfg_.publish_interval_ms));
         }
 
         try

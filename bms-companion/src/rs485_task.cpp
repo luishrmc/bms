@@ -4,15 +4,16 @@
 #include <boost/thread/thread.hpp>
 
 #include <iostream>
+#include <string>
 
 namespace bms
 {
 
     RS485Task::RS485Task(const Config &cfg,
-                         SnapshotQueue &output_queue,
+                         LatestBatteryState &latest_state,
                          boost::atomic<bool> &running_flag)
         : cfg_(cfg),
-          output_queue_(output_queue),
+          latest_state_(latest_state),
           running_(running_flag)
     {
     }
@@ -23,51 +24,49 @@ namespace bms
 
         while (running_)
         {
-            // if (!codec.is_connected())
-            // {
-            //     std::cout << "[RS485] Connecting to " << cfg_.rs485.device
-            //               << " slave=" << cfg_.rs485.slave_id
-            //               << " baud=" << cfg_.rs485.baudrate << "...\n";
-
-            //     if (!codec.connect())
-            //     {
-            //         std::cerr << "[RS485] Connection failed. Retrying in "
-            //                   << cfg_.connect_retry_delay_ms << " ms\n";
-            //         boost::this_thread::sleep_for(
-            //             boost::chrono::milliseconds(cfg_.connect_retry_delay_ms));
-            //         continue;
-            //     }
-
-            //     std::cout << "[RS485] Connected.\n";
-            // }
-
-            BatterySnapshot snapshot
+            if (!codec.is_connected())
             {
-                .timestamp = std::chrono::system_clock::now(),
-            };
-            std::string error;
+                std::cout << "[RS485] Connecting to " << cfg_.rs485.device
+                          << " slave=" << cfg_.rs485.slave_id
+                          << " baud=" << cfg_.rs485.baudrate << "..." << std::endl;
 
-            // if (!codec.read_snapshot(snapshot, error))
-            // {
-            //     std::cerr << "[RS485] Read failed: " << error << "\n";
-            //     codec.disconnect();
-            //     boost::this_thread::sleep_for(
-            //         boost::chrono::milliseconds(cfg_.connect_retry_delay_ms));
-            //     continue;
-            // }
+                if (!codec.connect())
+                {
+                    std::cerr << "[RS485] Connection failed. Retrying in "
+                              << cfg_.connect_retry_delay_ms << " ms" << std::endl;
+                    boost::this_thread::sleep_for(
+                        boost::chrono::milliseconds(cfg_.connect_retry_delay_ms));
+                    continue;
+                }
 
-            auto *queued = new BatterySnapshot(std::move(snapshot));
-            if (!output_queue_.push_blocking(queued))
-            {
-                output_queue_.dispose(queued);
-                break;
+                std::cout << "[RS485] Connected." << std::endl;
             }
 
-            boost::this_thread::sleep_for(boost::chrono::milliseconds(cfg_.poll_interval_ms));
+            BatterySnapshot snapshot;
+            std::string error;
+
+            if (!codec.read_snapshot(snapshot, error))
+            {
+                std::cerr << "[RS485] Read failed: " << error << std::endl;
+                codec.disconnect();
+                boost::this_thread::sleep_for(
+                    boost::chrono::milliseconds(cfg_.connect_retry_delay_ms));
+                continue;
+            }
+
+            if (cfg_.print_snapshot)
+            {
+                snapshot.print(std::cout);
+            }
+
+            latest_state_.update(std::move(snapshot));
+
+            boost::this_thread::sleep_for(
+                boost::chrono::milliseconds(cfg_.poll_interval_ms));
         }
 
         codec.disconnect();
-        std::cout << "[RS485] Task stopped.\n";
+        std::cout << "[RS485] Task stopped." << std::endl;
     }
 
 } // namespace bms

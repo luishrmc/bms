@@ -22,6 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-all-dev \
     # Json library
     nlohmann-json3-dev \
+    # MQTT client libraries
+    libpaho-mqttpp-dev \
+    libpaho-mqtt-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root runtime user

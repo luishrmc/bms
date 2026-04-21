@@ -1,11 +1,12 @@
 #pragma once
 
 #include "battery_snapshot.hpp"
-#include "safe_queue.hpp"
+#include "latest_battery_state.hpp"
 
 #include <boost/atomic.hpp>
 
 #include <chrono>
+#include <cstddef>
 #include <string>
 
 namespace mqtt
@@ -23,10 +24,10 @@ namespace bms
         std::string client_id{"bms_rs485_publisher"};
         std::string topic_battery_snapshot{"bms/battery/snapshot"};
         int qos{1};
-        bool retained{false};
+        bool retained{true};
 
-        int reconnect_delay_ms{1000};
-        std::chrono::milliseconds wait_timeout{500};
+        int reconnect_delay_ms{2000};
+        int publish_interval_ms{5000};
     };
 
     struct MQTTTaskDiagnostics
@@ -40,10 +41,8 @@ namespace bms
     class MQTTTask
     {
     public:
-        using SnapshotQueue = SafeQueue<BatterySnapshot>;
-
         MQTTTask(const MQTTTaskConfig &cfg,
-                 SnapshotQueue &snapshot_queue,
+                 const LatestBatteryState &latest_state,
                  boost::atomic<bool> &running_flag);
 
         void operator()();
@@ -64,7 +63,7 @@ namespace bms
 
     private:
         MQTTTaskConfig cfg_;
-        SnapshotQueue &snapshot_queue_;
+        const LatestBatteryState &latest_state_;
         boost::atomic<bool> &running_;
         MQTTTaskDiagnostics diagnostics_{};
     };
