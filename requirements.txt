@@ -4,8 +4,11 @@ pandas
 # ---- InfluxDB 3 client ----
 influxdb3-python
 
-# ---- Modbus ----
-pymodbus
+# ---- Can ----
+can
+
+# --- MQTT ----
+paho-mqtt
 
 # ---- Serial ----
 pyserial

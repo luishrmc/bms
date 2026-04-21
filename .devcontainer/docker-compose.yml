@@ -15,7 +15,6 @@ services:
     command: sleep infinity
     depends_on:
       - influxdb3
-      - mosquitto
 
   # The Eclipse Mosquitto MQTT broker service
   mosquitto:
@@ -25,6 +24,7 @@ services:
     ports:
       - "1883:1883"
     volumes:
+      # Mount local directories for configuration, data, and logs
       - ../config/mosquitto/config:/mosquitto/config
       - ../config/mosquitto/data:/mosquitto/data
       - ../config/mosquitto/log:/mosquitto/log

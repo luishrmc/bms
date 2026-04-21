@@ -23,7 +23,7 @@ namespace bms
     struct TemperatureAcquisitionConfig final
     {
         ModbusTcpConfig device{};
-        bool enable_sample_logging{true};
+        bool enable_sample_logging{false};
         std::uint64_t diagnostics_every_cycles{0};
     };
 

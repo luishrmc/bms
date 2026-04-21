@@ -22,7 +22,7 @@ namespace bms
      */
     struct SoCTaskConfig final
     {
-        bool enable_diagnostics_logging{true};
+        bool enable_diagnostics_logging{false};
     };
 
     /**

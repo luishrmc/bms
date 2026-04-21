@@ -29,7 +29,7 @@ namespace bms
         std::size_t current_source_channel{7};
         float current_scale_a_per_v{1.0F};
         float current_offset_a{0.0F};
-        bool enable_sample_logging{true};
+        bool enable_sample_logging{false};
         std::uint64_t diagnostics_every_cycles{0};
     };
 
