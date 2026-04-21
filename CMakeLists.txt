@@ -57,3 +57,4 @@ target_link_libraries(libmodbus::modbus INTERFACE PkgConfig::LIBMODBUS)
 
 # ------------------------------------ SUBDIRECTORIES ------------------------------------ #
 add_subdirectory(app)
+add_subdirectory(bms-companion)
