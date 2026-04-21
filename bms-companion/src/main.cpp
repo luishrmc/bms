@@ -1,5 +1,9 @@
 #include "latest_battery_state.hpp"
+#include "latest_regatron_state.hpp"
+#include "mqtt_control_task.hpp"
 #include "mqtt_task.hpp"
+#include "regatron_command_state.hpp"
+#include "regatron_task.hpp"
 #include "rs485_task.hpp"
 
 #include <boost/atomic.hpp>
@@ -27,79 +31,73 @@ int main(void)
     std::signal(SIGTERM, signal_handler);
 
     std::cout << "========================================" << std::endl;
-    std::cout << " BMS RS485 + MQTT Runtime " << std::endl;
+    std::cout << " BMS RS485 + MQTT + Regatron Runtime " << std::endl;
     std::cout << "========================================" << std::endl;
 
     bms::LatestBatteryState latest_battery_state;
+    bms::RegatronCommandState regatron_command_state;
+    bms::LatestRegatronState latest_regatron_state;
 
     bms::RS485Task::Config rs485_task_cfg;
-
     rs485_task_cfg.rs485.response_timeout_sec = 0;
     rs485_task_cfg.rs485.response_timeout_usec = 300000;
     rs485_task_cfg.rs485.read_start_address = 0;
     rs485_task_cfg.rs485.read_register_count = 125;
     rs485_task_cfg.rs485.current_scale_a_per_lsb = 0.0F;
-
     rs485_task_cfg.connect_retry_delay_ms = 1000;
     rs485_task_cfg.poll_interval_ms = 1000;
     rs485_task_cfg.print_snapshot = false;
 
-    bms::MQTTTaskConfig mqtt_task_cfg;
+    bms::MQTTTaskConfig battery_mqtt_cfg;
+    bms::MQTTControlTaskConfig regatron_mqtt_cfg;
+    bms::RegatronTask::Config regatron_cfg;
+    regatron_cfg.default_supervision_u_min_v = 44.0F;
+    regatron_cfg.default_supervision_u_max_v = 54.2F;
+    regatron_cfg.default_supervision_i_min_a = -10.0F;
+    regatron_cfg.default_supervision_i_max_a = 10.0F;
 
     bms::RS485Task rs485_task(rs485_task_cfg, latest_battery_state, g_running);
-    bms::MQTTTask mqtt_task(mqtt_task_cfg, latest_battery_state, g_running);
+    bms::MQTTTask battery_mqtt_task(battery_mqtt_cfg, latest_battery_state, g_running);
+    bms::MQTTControlTask regatron_mqtt_task(
+        regatron_mqtt_cfg,
+        regatron_command_state,
+        latest_regatron_state,
+        g_running);
+    bms::RegatronTask regatron_task(
+        regatron_cfg,
+        regatron_command_state,
+        latest_regatron_state,
+        latest_battery_state,
+        g_running);
 
     try
     {
-        std::cout << "\n[Main] Creating worker threads..." << std::endl;
-
         boost::thread rs485_thread(std::ref(rs485_task));
-        boost::thread mqtt_thread(std::ref(mqtt_task));
+        boost::thread battery_mqtt_thread(std::ref(battery_mqtt_task));
+        boost::thread regatron_mqtt_thread(std::ref(regatron_mqtt_task));
+        boost::thread regatron_thread(std::ref(regatron_task));
 
-        int counter = 0;
         while (g_running)
         {
-            boost::this_thread::sleep_for(boost::chrono::milliseconds(1000));
+            boost::this_thread::sleep_for(boost::chrono::seconds(2));
 
-            if (++counter % 10 == 0)
+            const auto reg = latest_regatron_state.get();
+            if (reg.has_value())
             {
-                const auto &mqtt_diag = mqtt_task.diagnostics();
-
-                std::cout << "\n=== Runtime Diagnostics (t=" << counter << "s) ===" << std::endl;
-                std::cout << "  [MQTTTask] published=" << mqtt_diag.published_snapshots
-                          << " publish_failures=" << mqtt_diag.publish_failures
-                          << " reconnect_attempts=" << mqtt_diag.reconnect_attempts
-                          << std::endl;
-
-                if (!mqtt_diag.last_error.empty())
-                {
-                    std::cout << "    last_error=" << mqtt_diag.last_error << std::endl;
-                }
-
-                std::cout << "  [State] latest_snapshot_available="
-                          << (latest_battery_state.has_value() ? "yes" : "no")
+                std::cout << "[Main] Regatron state=" << bms::to_string(reg->fsm_state)
+                          << " U=" << reg->actual_voltage_v
+                          << " I=" << reg->actual_current_a
+                          << " switch=" << bms::to_string(reg->actual_switch)
+                          << " fault=" << (reg->fault_active ? "yes" : "no")
                           << std::endl;
             }
         }
 
-        std::cout << "\n[Main] Initiating shutdown sequence..." << std::endl;
-
         rs485_thread.join();
-        mqtt_thread.join();
+        battery_mqtt_thread.join();
+        regatron_mqtt_thread.join();
+        regatron_thread.join();
 
-        const auto &mqtt_diag = mqtt_task.diagnostics();
-        std::cout << "\n=== Final Diagnostics ===" << std::endl;
-        std::cout << "  [MQTTTask] published=" << mqtt_diag.published_snapshots
-                  << " publish_failures=" << mqtt_diag.publish_failures
-                  << " reconnect_attempts=" << mqtt_diag.reconnect_attempts
-                  << std::endl;
-
-        if (!mqtt_diag.last_error.empty())
-        {
-            std::cout << "  [MQTTTask] last_error=" << mqtt_diag.last_error << std::endl;
-        }
-
-        std::cout << "\n[Main] Clean exit completed." << std::endl;
         return 0;
     }
     catch (const std::exception &e)

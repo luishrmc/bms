@@ -43,9 +43,9 @@ namespace bms
         uint16_t cell_count{0};
         float full_charge_capacity_ah{0.0F};
 
-        std::string serial_or_model{"TEST1234"};
-        std::string bms_version{"TEST1234"};
-        std::string manufacturer{"TEST1234"};
+        std::string serial_or_model{""};
+        std::string bms_version{""};
+        std::string manufacturer{""};
 
         static uint32_t combine_u32(uint16_t high, uint16_t low) noexcept
         {

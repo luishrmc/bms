@@ -9,6 +9,8 @@ add_executable(${BMS_COMPANION_EXEC_NAME}
     src/modbus_codec.cpp
     src/rs485_task.cpp
     src/mqtt_task.cpp
+    src/mqtt_control_task.cpp
+    src/regatron_task.cpp
 )
 
 # Add include directories needed for this target (e.g., generated config headers)
