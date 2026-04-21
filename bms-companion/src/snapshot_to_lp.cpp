@@ -158,9 +158,9 @@ namespace bms
         append_uint64(payload, snapshot.full_charge_capacity_mas);
         payload += "u";
 
-        payload += ",cell_count=";
-        append_uint64(payload, snapshot.cell_count);
-        payload += "u";
+        // payload += ",cell_count=";
+        // append_uint64(payload, snapshot.cell_count);
+        // payload += "u";
 
         payload += ",full_charge_capacity_ah=";
         append_float(payload, snapshot.full_charge_capacity_ah);
@@ -174,23 +174,23 @@ namespace bms
             payload += "u";
         }
 
-        if (!snapshot.serial_or_model.empty())
-        {
-            payload += ",serial_or_model=";
-            append_escaped_string_field(payload, snapshot.serial_or_model);
-        }
+        // if (!snapshot.serial_or_model.empty())
+        // {
+        //     payload += ",serial_or_model=";
+        //     append_escaped_string_field(payload, snapshot.serial_or_model);
+        // }
 
-        if (!snapshot.bms_version.empty())
-        {
-            payload += ",bms_version=";
-            append_escaped_string_field(payload, snapshot.bms_version);
-        }
+        // if (!snapshot.bms_version.empty())
+        // {
+        //     payload += ",bms_version=";
+        //     append_escaped_string_field(payload, snapshot.bms_version);
+        // }
 
-        if (!snapshot.manufacturer.empty())
-        {
-            payload += ",manufacturer=";
-            append_escaped_string_field(payload, snapshot.manufacturer);
-        }
+        // if (!snapshot.manufacturer.empty())
+        // {
+        //     payload += ",manufacturer=";
+        //     append_escaped_string_field(payload, snapshot.manufacturer);
+        // }
 
         payload.push_back(' ');
         append_int64(payload, to_influxdb_ns(snapshot.timestamp));

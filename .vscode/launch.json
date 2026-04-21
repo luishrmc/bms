@@ -5,7 +5,7 @@
       "name": "(gdb) Launch Debug",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/bin/bms",
+      "program": "${workspaceFolder}/bin/bms_companion",
       "args": [],
       "stopAtEntry": true,
       "cwd": "${workspaceFolder}",
