@@ -45,7 +45,6 @@ namespace bms
             {
                 .timestamp = std::chrono::system_clock::now(),
             };
-
             std::string error;
 
             // if (!codec.read_snapshot(snapshot, error))

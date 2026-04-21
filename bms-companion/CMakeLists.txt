@@ -5,13 +5,10 @@ set(BMS_COMPANION_EXEC_NAME bms_companion)
 
 # Define the main executable and specify its source files
 add_executable(${BMS_COMPANION_EXEC_NAME}
-    src/db_task.cpp
     src/main.cpp
     src/modbus_codec.cpp
     src/rs485_task.cpp
-    src/snapshot_to_lp.cpp
-
-    ${PROJECT_SOURCE_DIR}/app/src/influxdb.cpp
+    src/mqtt_task.cpp
 )
 
 # Add include directories needed for this target (e.g., generated config headers)
@@ -30,7 +27,8 @@ target_link_libraries(${BMS_COMPANION_EXEC_NAME} PRIVATE
     Boost::chrono
     Threads::Threads
     libmodbus::modbus
-    CURL::libcurl
+    paho-mqttpp3
+    paho-mqtt3as
 )
 
 # Define any required compile-time macros for the target

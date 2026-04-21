@@ -39,6 +39,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-all-dev \
     nlohmann-json3-dev \
     libmodbus-dev \
+    libpaho-mqttpp-dev \
+    libpaho-mqtt-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Stage 4: Set Timezone ---

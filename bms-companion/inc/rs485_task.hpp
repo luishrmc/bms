@@ -20,7 +20,7 @@ public:
     {
         RS485Config rs485;
         int connect_retry_delay_ms{1000};
-        int poll_interval_ms{5000};
+        int poll_interval_ms{1000};
     };
 
     RS485Task(const Config &cfg,
