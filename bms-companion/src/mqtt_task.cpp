@@ -12,6 +12,12 @@
 namespace bms
 {
 
+    /**
+     * @brief Creates the battery snapshot MQTT publication task.
+     * @param cfg Broker/topic settings.
+     * @param latest_state Shared source for battery snapshots.
+     * @param running_flag Global lifecycle flag.
+     */
     MQTTTask::MQTTTask(const MQTTTaskConfig &cfg,
                        const LatestBatteryState &latest_state,
                        boost::atomic<bool> &running_flag)
@@ -21,6 +27,10 @@ namespace bms
     {
     }
 
+    /**
+     * @brief Connects to the broker using a manual retry loop.
+     * @return True when a connection is available.
+     */
     bool MQTTTask::ensure_connected_(mqtt::async_client &client,
                                      mqtt::connect_options &conn_opts)
     {
@@ -56,6 +66,11 @@ namespace bms
         return false;
     }
 
+    /**
+     * @brief Converts a battery snapshot into the published JSON contract.
+     * @param snapshot Decoded battery data.
+     * @return Compact JSON payload string.
+     */
     std::string MQTTTask::snapshot_to_json_(const BatterySnapshot &snapshot)
     {
         nlohmann::json j;
@@ -119,6 +134,12 @@ namespace bms
         return j.dump();
     }
 
+    /**
+     * @brief Publishes one snapshot message to the configured MQTT topic.
+     * @param client Connected MQTT client.
+     * @param snapshot Snapshot to publish.
+     * @return True when the publish operation succeeds.
+     */
     bool MQTTTask::publish_snapshot_(mqtt::async_client &client,
                                      const BatterySnapshot &snapshot)
     {
@@ -146,6 +167,10 @@ namespace bms
         }
     }
 
+    /**
+     * @brief Task loop that periodically publishes the latest battery state.
+     * @note Failed publish attempts trigger a reconnect on the next loop.
+     */
     void MQTTTask::operator()()
     {
         mqtt::async_client client(cfg_.server_uri, cfg_.client_id);

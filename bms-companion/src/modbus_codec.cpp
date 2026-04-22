@@ -9,6 +9,10 @@
 namespace bms
 {
 
+/**
+ * @brief Builds a codec bound to one fixed RS485/Modbus configuration.
+ * @param cfg Serial port and register-map settings.
+ */
 ModbusCodec::ModbusCodec(const RS485Config &cfg)
     : cfg_(cfg)
 {
@@ -108,6 +112,13 @@ std::string ModbusCodec::decode_ascii_block(
     return out;
 }
 
+/**
+ * @brief Reads one holding-register block and decodes battery engineering data.
+ * @param out_snapshot Destination snapshot.
+ * @param error_out Error detail when decoding fails.
+ * @return True on success.
+ * @note Current scaling is only applied when `current_scale_a_per_lsb > 0`.
+ */
 bool ModbusCodec::read_snapshot(BatterySnapshot &out_snapshot, std::string &error_out)
 {
     if (ctx_ == nullptr)

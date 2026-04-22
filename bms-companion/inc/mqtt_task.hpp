@@ -18,6 +18,9 @@ namespace mqtt
 namespace bms
 {
 
+    /**
+     * @brief MQTT publication settings for battery snapshots.
+     */
     struct MQTTTaskConfig
     {
         std::string server_uri{"tcp://mosquitto:1883"};
@@ -30,6 +33,9 @@ namespace bms
         int publish_interval_ms{5000};
     };
 
+    /**
+     * @brief Runtime counters and error state for the battery MQTT task.
+     */
     struct MQTTTaskDiagnostics
     {
         std::size_t published_snapshots{0};
@@ -38,15 +44,31 @@ namespace bms
         std::string last_error;
     };
 
+    /**
+     * @brief Periodically publishes the latest battery snapshot as JSON.
+     */
     class MQTTTask
     {
     public:
+        /**
+         * @brief Builds the MQTT publisher task.
+         * @param cfg Broker/topic settings.
+         * @param latest_state Shared battery snapshot source.
+         * @param running_flag Global lifecycle flag.
+         */
         MQTTTask(const MQTTTaskConfig &cfg,
                  const LatestBatteryState &latest_state,
                  boost::atomic<bool> &running_flag);
 
+        /**
+         * @brief Task entrypoint used by the dedicated MQTT thread.
+         */
         void operator()();
 
+        /**
+         * @brief Returns task counters and last error details.
+         * @return Immutable diagnostics reference.
+         */
         const MQTTTaskDiagnostics &diagnostics() const noexcept
         {
             return diagnostics_;

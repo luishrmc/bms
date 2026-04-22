@@ -7,16 +7,18 @@
 #include <boost/atomic.hpp>
 #include <string>
 
-#include <boost/atomic.hpp>
-
-#include <string>
-
 namespace bms
 {
 
+    /**
+     * @brief CAN-based Regatron control task with a simple operational FSM.
+     */
     class RegatronTask
     {
     public:
+        /**
+         * @brief Static configuration for CAN timing and default limits.
+         */
         struct Config
         {
             std::string can_ifname{"can0"};
@@ -42,12 +44,23 @@ namespace bms
             float default_supervision_p_max_kw{10.0F};
         };
 
+        /**
+         * @brief Builds the Regatron CAN/FSM task.
+         * @param cfg CAN interface and timing configuration.
+         * @param command_state Shared command mailbox updated by MQTT control.
+         * @param latest_state Destination for Regatron status snapshots.
+         * @param latest_battery_state Latest battery snapshot for safety checks.
+         * @param running_flag Global lifecycle flag.
+         */
         RegatronTask(const Config &cfg,
                      RegatronCommandState &command_state,
                      LatestRegatronState &latest_state,
                      const LatestBatteryState &latest_battery_state,
                      boost::atomic<bool> &running_flag);
 
+        /**
+         * @brief Task entrypoint used by the Regatron worker thread.
+         */
         void operator()();
 
     private:

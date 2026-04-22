@@ -9,6 +9,9 @@
 namespace bms
 {
 
+    /**
+     * @brief Internal FSM states for Regatron control sequencing.
+     */
     enum class RegatronFsmState : std::uint8_t
     {
         INIT = 0,
@@ -21,6 +24,9 @@ namespace bms
         ERROR
     };
 
+    /**
+     * @brief Switch state reported by Regatron CAN feedback.
+     */
     enum class RegatronSwitchState : std::uint8_t
     {
         OFF = 0,
@@ -30,6 +36,9 @@ namespace bms
         UNKNOWN = 255
     };
 
+    /**
+     * @brief Regatron control mode reported by feedback frames.
+     */
     enum class RegatronControlMode : std::uint8_t
     {
         VOLTAGE = 1,
@@ -37,6 +46,11 @@ namespace bms
         POWER = 3
     };
 
+    /**
+     * @brief Converts an FSM state to text for logs and MQTT payloads.
+     * @param s FSM state.
+     * @return Constant state label.
+     */
     inline const char *to_string(RegatronFsmState s) noexcept
     {
         switch (s)
@@ -62,6 +76,11 @@ namespace bms
         }
     }
 
+    /**
+     * @brief Converts a Regatron switch state to text.
+     * @param s Switch state.
+     * @return Constant switch-state label.
+     */
     inline const char *to_string(RegatronSwitchState s) noexcept
     {
         switch (s)
@@ -79,6 +98,9 @@ namespace bms
         }
     }
 
+    /**
+     * @brief Latest decoded Regatron runtime feedback and FSM context.
+     */
     struct RegatronStatusSnapshot
     {
         std::chrono::system_clock::time_point timestamp{};
@@ -110,6 +132,13 @@ namespace bms
         std::string info;
     };
 
+    /**
+     * @brief User command and boundary setpoints consumed by RegatronTask.
+     *
+     * @note `start_requested`, `stop_requested`, and `clear_fault_requested`
+     *       are pulse-style flags consumed by
+     *       RegatronCommandState::snapshot_and_consume_pulses().
+     */
     struct RegatronCommandSnapshot
     {
         bool enable{false};

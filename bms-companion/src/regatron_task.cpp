@@ -39,12 +39,18 @@ namespace bms
         constexpr canid_t ID_CLEARANCE = 1824;
         constexpr canid_t ID_SET_CYCLE_TIME = 1855;
 
+        /**
+         * @brief Scales a non-negative float to 0.1 units and clamps to uint16.
+         */
         std::uint16_t clamp_u16_scaled_0p1(float value)
         {
             const auto raw = static_cast<int>(std::lround(std::max(0.0F, value) * 10.0F));
             return static_cast<std::uint16_t>(std::clamp(raw, 0, 65535));
         }
 
+        /**
+         * @brief Scales a float to 0.1 units and clamps to signed 24-bit range.
+         */
         std::int32_t clamp_s24_scaled_0p1(float value)
         {
             const auto raw = static_cast<int>(std::lround(value * 10.0F));
@@ -56,12 +62,18 @@ namespace bms
             return {0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U};
         }
 
+        /**
+         * @brief Writes a little-endian unsigned 16-bit value into a CAN payload.
+         */
         void put_u16_le_(std::array<std::uint8_t, 8> &d, int pos, std::uint16_t v)
         {
             d[static_cast<std::size_t>(pos + 0)] = static_cast<std::uint8_t>(v & 0xFFU);
             d[static_cast<std::size_t>(pos + 1)] = static_cast<std::uint8_t>((v >> 8) & 0xFFU);
         }
 
+        /**
+         * @brief Writes a little-endian signed 24-bit value into a CAN payload.
+         */
         void put_s24_le_(std::array<std::uint8_t, 8> &d, int pos, std::int32_t v)
         {
             const std::uint32_t u = static_cast<std::uint32_t>(v) & 0xFFFFFFU;
@@ -70,6 +82,9 @@ namespace bms
             d[static_cast<std::size_t>(pos + 2)] = static_cast<std::uint8_t>((u >> 16) & 0xFFU);
         }
 
+        /**
+         * @brief Writes a little-endian signed 32-bit value into a CAN payload.
+         */
         void put_s32_le_(std::array<std::uint8_t, 8> &d, int pos, std::int32_t v)
         {
             const std::uint32_t u = static_cast<std::uint32_t>(v);
@@ -79,6 +94,9 @@ namespace bms
             d[static_cast<std::size_t>(pos + 3)] = static_cast<std::uint8_t>((u >> 24) & 0xFFU);
         }
 
+        /**
+         * @brief Reads a little-endian signed 32-bit value from CAN payload data.
+         */
         std::int32_t get_s32_le_(const std::uint8_t *d, int pos)
         {
             const std::uint32_t u =
@@ -90,6 +108,10 @@ namespace bms
             return static_cast<std::int32_t>(u);
         }
 
+        /**
+         * @brief Sends one classic CAN frame.
+         * @return True when the full frame write succeeds.
+         */
         bool send_frame_(int fd, canid_t id, const std::array<std::uint8_t, 8> &payload, std::uint8_t dlc)
         {
             struct can_frame frame{};
@@ -101,6 +123,11 @@ namespace bms
             return rc == static_cast<ssize_t>(sizeof(frame));
         }
 
+        /**
+         * @brief Opens and binds a non-blocking CAN RAW socket.
+         * @param ifname Linux CAN interface name (for example `can0`).
+         * @return Socket FD, or -1 on failure.
+         */
         int open_can_(const std::string &ifname)
         {
             const int fd = ::socket(PF_CAN, SOCK_RAW, CAN_RAW);
@@ -136,6 +163,14 @@ namespace bms
 
     } // namespace
 
+    /**
+     * @brief Creates the Regatron CAN/FSM worker task.
+     * @param cfg CAN and timing defaults.
+     * @param command_state Shared command mailbox.
+     * @param latest_state Shared destination for status snapshots.
+     * @param latest_battery_state Shared battery snapshot for safety gating.
+     * @param running_flag Global lifecycle flag.
+     */
     RegatronTask::RegatronTask(const Config &cfg,
                                RegatronCommandState &command_state,
                                LatestRegatronState &latest_state,
@@ -149,6 +184,12 @@ namespace bms
     {
     }
 
+    /**
+     * @brief Runs the Regatron control FSM, CAN TX scheduler, and RX decoder.
+     *
+     * @warning Charging/discharging is forcefully interrupted when battery
+     *          alarm/protection bits become active in the latest battery state.
+     */
     void RegatronTask::operator()()
     {
         while (running_)
@@ -270,7 +311,8 @@ namespace bms
                     status.info = "CAN feedback timeout";
                 }
 
-                // FSM
+                // FSM state transition helper. Entering CHARGE or DISCHARGE
+                // resets the cycle timer used for time-based swap decisions.
                 auto transition_to = [&](RegatronFsmState next, const char *reason)
                 {
                     if (status.fsm_state != next)
@@ -303,6 +345,10 @@ namespace bms
                     battery_protected_status = (battery->status_raw == 0x0004U);
                 }
 
+                // Safety-oriented FSM decisions:
+                // - OFF/WAIT/STANDBY bring the source to a controlled ready state.
+                // - CHARGE/DISCHARGE alternate by time, SOC, or pack voltage.
+                // - Battery alarm/protection immediately exits cycling to OFF.
                 switch (status.fsm_state)
                 {
                 case RegatronFsmState::INIT:

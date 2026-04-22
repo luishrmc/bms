@@ -12,6 +12,13 @@
 namespace bms
 {
 
+    /**
+     * @brief Creates the MQTT control/status task for Regatron integration.
+     * @param cfg Broker/topic settings.
+     * @param command_state Shared command mailbox.
+     * @param latest_state Shared Regatron status source.
+     * @param running_flag Global lifecycle flag.
+     */
     MQTTControlTask::MQTTControlTask(const MQTTControlTaskConfig &cfg,
                                      RegatronCommandState &command_state,
                                      const LatestRegatronState &latest_state,
@@ -48,12 +55,178 @@ namespace bms
         return std::stof(payload);
     }
 
+    /**
+     * @brief Decodes one command message into command-state updates.
+     * @param topic Full MQTT topic.
+     * @param payload Raw payload received from broker.
+     * @warning Invalid payloads are logged and ignored; no exception escapes.
+     */
     void MQTTControlTask::handle_message_(const std::string &topic, const std::string &payload)
     {
         const auto cmd = cfg_.topic_base_cmd + "/";
 
         try
         {
+            // New retained partial-update JSON topic:
+            //   bms/regatron/cmd/set
+            //
+            // Example:
+            // {
+            //   "enable": true,
+            //   "charge_current_a": 5.0,
+            //   "discharge_current_a": 5.0,
+            //   "cycle_time_s": 1800,
+            //   "soc_min_pct": 20,
+            //   "soc_max_pct": 80,
+            //   "voltage_limit_min_v": 44.0,
+            //   "voltage_limit_max_v": 54.2
+            // }
+            //
+            // Partial update is supported:
+            // { "charge_current_a": 8.0 }
+            if (topic == cmd + "set")
+            {
+                const auto j = nlohmann::json::parse(payload);
+
+                if (!j.is_object())
+                {
+                    throw std::runtime_error("cmd/set payload must be a JSON object");
+                }
+
+                auto get_bool = [](const nlohmann::json &v) -> bool
+                {
+                    if (v.is_boolean())
+                    {
+                        return v.get<bool>();
+                    }
+                    if (v.is_number_integer())
+                    {
+                        return v.get<int>() != 0;
+                    }
+                    if (v.is_string())
+                    {
+                        const auto s = v.get<std::string>();
+                        return s == "1" || s == "true" || s == "TRUE" || s == "on";
+                    }
+                    throw std::runtime_error("invalid boolean field");
+                };
+
+                auto get_float = [](const nlohmann::json &v) -> float
+                {
+                    if (v.is_number())
+                    {
+                        return v.get<float>();
+                    }
+                    if (v.is_string())
+                    {
+                        return std::stof(v.get<std::string>());
+                    }
+                    throw std::runtime_error("invalid numeric field");
+                };
+
+                if (j.contains("enable"))
+                {
+                    command_state_.set_enable(get_bool(j.at("enable")));
+                }
+                if (j.contains("charge_current_a"))
+                {
+                    command_state_.set_charge_current_a(get_float(j.at("charge_current_a")));
+                }
+                if (j.contains("discharge_current_a"))
+                {
+                    command_state_.set_discharge_current_a(get_float(j.at("discharge_current_a")));
+                }
+                if (j.contains("cycle_time_s"))
+                {
+                    command_state_.set_cycle_time_s(get_float(j.at("cycle_time_s")));
+                }
+                if (j.contains("voltage_limit_min_v"))
+                {
+                    command_state_.set_voltage_limit_min_v(get_float(j.at("voltage_limit_min_v")));
+                }
+                if (j.contains("voltage_limit_max_v"))
+                {
+                    command_state_.set_voltage_limit_max_v(get_float(j.at("voltage_limit_max_v")));
+                }
+                if (j.contains("current_limit_min_a"))
+                {
+                    command_state_.set_current_limit_min_a(get_float(j.at("current_limit_min_a")));
+                }
+                if (j.contains("current_limit_max_a"))
+                {
+                    command_state_.set_current_limit_max_a(get_float(j.at("current_limit_max_a")));
+                }
+                if (j.contains("soc_min_pct"))
+                {
+                    command_state_.set_soc_min_pct(get_float(j.at("soc_min_pct")));
+                }
+                if (j.contains("soc_max_pct"))
+                {
+                    command_state_.set_soc_max_pct(get_float(j.at("soc_max_pct")));
+                }
+
+                return;
+            }
+
+            // New action topic:
+            //   bms/regatron/cmd/action
+            //
+            // Supported payloads:
+            //   {"action":"start"}
+            //   {"action":"stop"}
+            //   {"action":"clear_fault"}
+            //
+            // Also accepts plain string payloads:
+            //   start
+            //   stop
+            //   clear_fault
+            if (topic == cmd + "action")
+            {
+                std::string action;
+
+                try
+                {
+                    const auto j = nlohmann::json::parse(payload);
+                    if (j.is_object() && j.contains("action") && j.at("action").is_string())
+                    {
+                        action = j.at("action").get<std::string>();
+                    }
+                    else if (j.is_string())
+                    {
+                        action = j.get<std::string>();
+                    }
+                    else
+                    {
+                        throw std::runtime_error("invalid action payload");
+                    }
+                }
+                catch (const nlohmann::json::parse_error &)
+                {
+                    action = payload;
+                }
+
+                if (action == "start")
+                {
+                    command_state_.request_start();
+                }
+                else if (action == "stop")
+                {
+                    command_state_.request_stop();
+                }
+                else if (action == "clear_fault")
+                {
+                    command_state_.request_clear_fault();
+                }
+                else
+                {
+                    throw std::runtime_error("unknown action: " + action);
+                }
+
+                return;
+            }
+
+            // Optional backward compatibility with old per-topic style.
+            // You can remove this later if you want to fully migrate.
             if (topic == cmd + "enable")
             {
                 command_state_.set_enable(parse_bool_(payload));
@@ -114,6 +287,10 @@ namespace bms
         }
     }
 
+    /**
+     * @brief Connects to MQTT and subscribes to all command topics.
+     * @return True when connected and subscription succeeds.
+     */
     bool MQTTControlTask::ensure_connected_(mqtt::async_client &client, mqtt::connect_options &opts)
     {
         if (client.is_connected())
@@ -142,6 +319,10 @@ namespace bms
         return false;
     }
 
+    /**
+     * @brief Publishes retained Regatron status fields and JSON summary.
+     * @note Publication is skipped until at least one Regatron snapshot exists.
+     */
     void MQTTControlTask::publish_status_(mqtt::async_client &client)
     {
         const auto maybe = latest_state_.get();
@@ -177,6 +358,9 @@ namespace bms
         client.publish(base + "summary", summary.dump(), cfg_.qos, true);
     }
 
+    /**
+     * @brief Task loop for MQTT command intake and 1 Hz status publication.
+     */
     void MQTTControlTask::operator()()
     {
         mqtt::async_client client(cfg_.server_uri, cfg_.client_id);

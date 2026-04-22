@@ -9,6 +9,12 @@
 namespace bms
 {
 
+    /**
+     * @brief Creates the RS485 polling loop task.
+     * @param cfg Poll and reconnect settings.
+     * @param latest_state Shared destination for decoded snapshots.
+     * @param running_flag Global lifecycle flag.
+     */
     RS485Task::RS485Task(const Config &cfg,
                          LatestBatteryState &latest_state,
                          boost::atomic<bool> &running_flag)
@@ -18,6 +24,10 @@ namespace bms
     {
     }
 
+    /**
+     * @brief Polls the battery continuously and refreshes the latest snapshot.
+     * @note On read failure the Modbus connection is dropped and reopened.
+     */
     void RS485Task::operator()()
     {
         ModbusCodec codec(cfg_.rs485);

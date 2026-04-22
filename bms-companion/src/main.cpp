@@ -18,6 +18,9 @@ namespace
 {
     boost::atomic<bool> g_running{true};
 
+    /**
+     * @brief Handles termination signals and triggers cooperative shutdown.
+     */
     void signal_handler(int)
     {
         std::cout << "\n[Main] Shutdown signal received..." << std::endl;
@@ -25,6 +28,12 @@ namespace
     }
 } // namespace
 
+/**
+ * @brief Composes and runs the RS485, MQTT, and Regatron worker threads.
+ *
+ * Shared latest-state objects are created here and passed by reference to
+ * dedicated task instances.
+ */
 int main(void)
 {
     std::signal(SIGINT, signal_handler);

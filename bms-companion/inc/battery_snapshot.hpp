@@ -11,15 +11,27 @@
 namespace bms
 {
 
+    /**
+     * @brief Decoded representation of one RS485/Modbus battery poll cycle.
+     *
+     * This snapshot stores both the raw register block and selected decoded
+     * engineering values used by MQTT publication and Regatron safety logic.
+     */
     struct BatterySnapshot
     {
+        /// Number of holding registers expected from the battery map.
         static constexpr std::size_t kRegisterCount = 125;
 
+        /// Timestamp captured when the snapshot was decoded.
         std::chrono::system_clock::time_point timestamp{};
+        /// Raw Modbus register image.
         std::array<uint16_t, kRegisterCount> raw_registers{};
 
+        /// Pack voltage in volts.
         float pack_voltage_v{0.0F};
+        /// Pack current in amperes (valid when @ref current_scaled is true).
         float pack_current_a{0.0F};
+        /// Indicates whether pack current was converted to engineering units.
         bool current_scaled{false};
 
         std::array<uint16_t, 16> cell_voltage_mv{};
@@ -47,11 +59,22 @@ namespace bms
         std::string bms_version{""};
         std::string manufacturer{""};
 
+        /**
+         * @brief Combines two 16-bit words into one 32-bit unsigned value.
+         * @param high Most significant word.
+         * @param low Least significant word.
+         * @return Combined 32-bit value.
+         */
         static uint32_t combine_u32(uint16_t high, uint16_t low) noexcept
         {
             return (static_cast<uint32_t>(high) << 16U) | static_cast<uint32_t>(low);
         }
 
+        /**
+         * @brief Converts the battery status bitfield into a readable string.
+         * @param raw Raw status register value.
+         * @return Human-readable status text.
+         */
         static std::string decode_status(uint16_t raw)
         {
             switch (raw)
@@ -97,6 +120,10 @@ namespace bms
             return oss.str();
         }
 
+        /**
+         * @brief Prints a formatted dump of the snapshot to an output stream.
+         * @param os Destination stream.
+         */
         void print(std::ostream &os) const
         {
             const auto ts_ms =
