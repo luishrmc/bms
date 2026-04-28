@@ -25,7 +25,7 @@ namespace bms
         int stop_bits{1};
         int slave_id{1};
 
-        int response_timeout_sec{0};
+        int response_timeout_sec{2};
         int response_timeout_usec{300000};
 
         /// Start register for the battery poll.

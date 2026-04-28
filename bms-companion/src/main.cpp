@@ -48,13 +48,6 @@ int main(void)
     bms::LatestRegatronState latest_regatron_state;
 
     bms::RS485Task::Config rs485_task_cfg;
-    rs485_task_cfg.rs485.response_timeout_sec = 0;
-    rs485_task_cfg.rs485.response_timeout_usec = 300000;
-    rs485_task_cfg.rs485.read_start_address = 0;
-    rs485_task_cfg.rs485.read_register_count = 125;
-    rs485_task_cfg.rs485.current_scale_a_per_lsb = 0.0F;
-    rs485_task_cfg.connect_retry_delay_ms = 1000;
-    rs485_task_cfg.poll_interval_ms = 1000;
     rs485_task_cfg.print_snapshot = false;
 
     bms::MQTTTaskConfig battery_mqtt_cfg;
@@ -83,29 +76,29 @@ int main(void)
     {
         boost::thread rs485_thread(std::ref(rs485_task));
         boost::thread battery_mqtt_thread(std::ref(battery_mqtt_task));
-        boost::thread regatron_mqtt_thread(std::ref(regatron_mqtt_task));
-        boost::thread regatron_thread(std::ref(regatron_task));
+        // boost::thread regatron_mqtt_thread(std::ref(regatron_mqtt_task));
+        // boost::thread regatron_thread(std::ref(regatron_task));
 
         while (g_running)
         {
             boost::this_thread::sleep_for(boost::chrono::seconds(2));
 
-            const auto reg = latest_regatron_state.get();
-            if (reg.has_value())
-            {
-                std::cout << "[Main] Regatron state=" << bms::to_string(reg->fsm_state)
-                          << " U=" << reg->actual_voltage_v
-                          << " I=" << reg->actual_current_a
-                          << " switch=" << bms::to_string(reg->actual_switch)
-                          << " fault=" << (reg->fault_active ? "yes" : "no")
-                          << std::endl;
-            }
+            // const auto reg = latest_regatron_state.get();
+            // if (reg.has_value())
+            // {
+            //     std::cout << "[Main] Regatron state=" << bms::to_string(reg->fsm_state)
+            //               << " U=" << reg->actual_voltage_v
+            //               << " I=" << reg->actual_current_a
+            //               << " switch=" << bms::to_string(reg->actual_switch)
+            //               << " fault=" << (reg->fault_active ? "yes" : "no")
+            //               << std::endl;
+            // }
         }
 
         rs485_thread.join();
         battery_mqtt_thread.join();
-        regatron_mqtt_thread.join();
-        regatron_thread.join();
+        // regatron_mqtt_thread.join();
+        // regatron_thread.join();
 
         return 0;
     }

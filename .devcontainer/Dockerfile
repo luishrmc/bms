@@ -22,6 +22,7 @@ ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && usermod -aG dialout $USERNAME \
     && echo $USERNAME ALL=\(ALL\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
@@ -36,6 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake ninja-build gdb lldb cppcheck ccache \
     # Clean up apt lists to keep the image small
     # C++ Libraries
+    iproute2 can-utils \
     libboost-all-dev \
     nlohmann-json3-dev \
     libmodbus-dev \
@@ -50,13 +52,13 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN dpkg --add-architecture armhf \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf \
-        # Target (armhf) libraries needed at link time
-        libboost-system-dev:armhf \
-        libboost-thread-dev:armhf \
-        libboost-chrono-dev:armhf \
-        libmodbus-dev:armhf \
-        libcurl4-openssl-dev:armhf \
-        libssl-dev:armhf \
-        zlib1g-dev:armhf \
+    gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf \
+    # Target (armhf) libraries needed at link time
+    libboost-system-dev:armhf \
+    libboost-thread-dev:armhf \
+    libboost-chrono-dev:armhf \
+    libmodbus-dev:armhf \
+    libcurl4-openssl-dev:armhf \
+    libssl-dev:armhf \
+    zlib1g-dev:armhf \
     && rm -rf /var/lib/apt/lists/*

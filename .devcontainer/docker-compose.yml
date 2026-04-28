@@ -6,16 +6,18 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ..:/home/bms/workspace:cached
-    ports:
-      - "8000:8000"
+      - /dev:/dev
+    network_mode: host
     cap_add:
       - SYS_PTRACE
+      - NET_RAW
+      - NET_ADMIN
     security_opt:
       - seccomp=unconfined
     command: sleep infinity
+    privileged: true
     depends_on:
       - influxdb3
-      - mosquitto
 
   # The Eclipse Mosquitto MQTT broker service
   mosquitto:
